@@ -1,613 +1,429 @@
-from flask import Flask, request, render_template, session, redirect, url_for, jsonify
 import numpy as np
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for
 import pickle
+from datetime import datetime
 import os
 import logging
-import warnings
-import time
-import tempfile
-import json
-from datetime import datetime
-from functools import wraps
 
-app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "hf-secret-key")
-print("DEBUG MONGO_URI:", os.environ.get("MONGO_URI"))
-
-# Configure session settings for production
-app.config['SESSION_COOKIE_SECURE'] = False  # Set to True if using HTTPS
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
-
-# Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-# Suppress scikit-learn version warnings when loading pickled models
-warnings.filterwarnings('ignore', category=UserWarning, module='sklearn')
+# Initialize Flask app
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24).hex())
 
-# ---------------- MONGO DB ---------------- 
-MONGO_URI = os.environ.get("MONGO_URI", "").strip()
-USE_MONGODB = True if MONGO_URI else False
-
-# File-based mechanism to prevent duplicate logging across gunicorn workers
-_log_file = os.path.join(tempfile.gettempdir(), '.mongodb_status_logged')
-
-def _log_mongodb_status_once(message, level='info'):
-    """Log MongoDB status message only once across all gunicorn workers"""
-    try:
-        # Try to create the file exclusively (atomic operation)
-        try:
-            # Try to open in exclusive create mode (fails if file exists)
-            fd = os.open(_log_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.close(fd)
-            # We're the first process, log the message
-            if level == 'info':
-                logger.info(message)
-            elif level == 'warning':
-                logger.warning(message)
-            return
-        except FileExistsError:
-            # File already exists, another process already logged
-            # Check file age - if it's old (>10 seconds), assume it's stale and log anyway
-            try:
-                file_age = time.time() - os.path.getmtime(_log_file)
-                if file_age > 10:
-                    # Stale file, remove it and log
-                    os.remove(_log_file)
-                    fd = os.open(_log_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                    os.close(fd)
-                    if level == 'info':
-                        logger.info(message)
-                    elif level == 'warning':
-                        logger.warning(message)
-            except Exception:
-                pass  # If we can't check/remove, skip logging
-            return
-    except Exception:
-        # If file operations fail completely, log anyway to be safe
-        if level == 'info':
-            logger.info(message)
-        elif level == 'warning':
-            logger.warning(message)
-
-if USE_MONGODB:
-    try:
-        from pymongo import MongoClient
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-        # Test connection
-        client.server_info()
-        db = client["heart_disease_db"]
-        users_collection = db["users"]
-        predictions_collection = db["predictions"]
-        _log_mongodb_status_once("MongoDB connection established", 'info')
-    except Exception:
-        USE_MONGODB = False
-        # Don't log warning - MongoDB failure is expected when not configured
-
-# File-based storage fallback (shared across gunicorn workers)
-if not USE_MONGODB:
-    users_collection = {}  # Keep for compatibility
-    predictions_collection = []  # Keep for compatibility
-    _log_mongodb_status_once("Using file-based storage (MongoDB not configured)", 'info')
-
-# ---------------- FILE-BASED STORAGE FUNCTIONS (for multi-worker support) ---------------- 
-_users_file = os.path.join(tempfile.gettempdir(), '.heart_disease_users.json')
-_predictions_file = os.path.join(tempfile.gettempdir(), '.heart_disease_predictions.json')
-
-def _load_users_from_file():
-    """Load users from file (shared across workers)"""
-    if USE_MONGODB:
-        return {}
-    try:
-        if os.path.exists(_users_file):
-            with open(_users_file, 'r') as f:
-                return json.load(f)
-    except Exception as e:
-        logger.debug(f"Error loading users file: {e}")
-    return {}
-
-def _save_users_to_file(users_dict):
-    """Save users to file (shared across workers)"""
-    if USE_MONGODB:
-        return
-    try:
-        with open(_users_file, 'w') as f:
-            json.dump(users_dict, f)
-    except Exception as e:
-        logger.error(f"Error saving users to file: {e}")
-
-def _load_predictions_from_file():
-    """Load predictions from file (shared across workers)"""
-    if USE_MONGODB:
-        return []
-    try:
-        if os.path.exists(_predictions_file):
-            with open(_predictions_file, 'r') as f:
-                return json.load(f)
-    except Exception as e:
-        logger.debug(f"Error loading predictions file: {e}")
-    return []
-
-def _save_predictions_to_file(predictions_list):
-    """Save predictions to file (shared across workers)"""
-    if USE_MONGODB:
-        return
-    try:
-        with open(_predictions_file, 'w') as f:
-            json.dump(predictions_list, f, default=str)
-    except Exception as e:
-        logger.error(f"Error saving predictions to file: {e}")
-
-def get_user_by_email(email):
-    if USE_MONGODB:
-        return users_collection.find_one({"email": email})
-    else:
-        users = _load_users_from_file()
-        return users.get(email)
-
-def save_user(user_data):
-    if USE_MONGODB:
-        result = users_collection.insert_one(user_data)
-        return str(result.inserted_id)
-    else:
-        users = _load_users_from_file()
-        user_id = f"user_{len(users)}"
-        user_data["_id"] = user_id
-        users[user_data["email"]] = user_data
-        _save_users_to_file(users)
-        return user_id
-
-def save_prediction(prediction_data):
-    if USE_MONGODB:
-        predictions_collection.insert_one(prediction_data)
-    else:
-        predictions = _load_predictions_from_file()
-        # Convert datetime to string for JSON serialization
-        if isinstance(prediction_data.get("timestamp"), datetime):
-            prediction_data = prediction_data.copy()
-            prediction_data["timestamp"] = prediction_data["timestamp"].isoformat()
-        predictions.append(prediction_data)
-        _save_predictions_to_file(predictions)
-
-def get_user_predictions(user_id):
-    if USE_MONGODB:
-        return list(predictions_collection.find({"user_id": user_id}).sort("timestamp", -1).limit(10))
-    else:
-        predictions = _load_predictions_from_file()
-        user_predictions = [p for p in predictions if p.get("user_id") == user_id][-10:]
-        return user_predictions
-
-# Initialize with a default test user if no users exist (after functions are defined)
-if not USE_MONGODB:
-    users = _load_users_from_file()
-    if not users:
-        test_user = {
-            "name": "Test User",
-            "email": "test@test.com",
-            "password": "test123",
-            "_id": "user_0"
-        }
-        users["test@test.com"] = test_user
-        _save_users_to_file(users)
-        logger.info("Created default test user: test@test.com / test123")
-
-# ---------------- LOAD MODEL ---------------- 
+# Load the model pipeline
 try:
-    model_path = os.path.join(os.path.dirname(__file__), "model.pkl")
-    if not os.path.exists(model_path):
-        model_path = "model.pkl"
-    
-    with open(model_path, "rb") as f:
-        pipeline = pickle.load(f)
-    
+    pipeline = pickle.load(open("model.pkl", "rb"))
     imputer = pipeline['imputer']
     scaler = pipeline['scaler']
     model = pipeline['model']
     feature_names = pipeline['feature_names']
-    logger.info("Model loaded successfully")
+    model_loaded = True
+    logging.info("Model loaded successfully")
 except Exception as e:
-    logger.error(f"Error loading model: {e}")
-    raise RuntimeError(f"Failed to load model: {e}")
+    logging.error(f"Error loading model: {e}")
+    model_loaded = False
+    feature_names = ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 
+                     'thalach', 'exang', 'oldpeak', 'slope', 'ca', 'thal']
 
-def requires_auth(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if "user_id" not in session:
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-    return decorated_function
+# Enhanced disease information with more detailed suggestions and risk levels
+disease_info = {
+    0: {
+        "name": "No Heart Disease",
+        "risk_level": "Low Risk",
+        "suggestions": "Keep up the healthy lifestyle! Regular exercise, a balanced diet, and regular health checkups are recommended.",
+        "detailed_suggestions": [
+            "Maintain 150 minutes of moderate exercise weekly",
+            "Follow a Mediterranean or DASH diet rich in fruits, vegetables, and whole grains",
+            "Limit alcohol consumption and avoid smoking",
+            "Get regular blood pressure and cholesterol screenings",
+            "Maintain healthy weight with BMI between 18.5-24.9"
+        ],
+        "ai_recommendations": "Based on your health profile, AI analysis suggests focusing on preventive measures. Consider tracking your heart rate variability with wearable devices for early detection of cardiovascular changes. Personalized nutrition apps can help optimize your diet based on your specific metabolic needs."
+    },
+    1: {
+        "name": "Heart Disease Detected",
+        "risk_level": "High Risk",
+        "suggestions": "Consult a cardiologist immediately. Adopt a heart-friendly diet, reduce sodium intake, manage stress, and avoid smoking and alcohol.",
+        "detailed_suggestions": [
+            "Schedule an appointment with a cardiologist within 1-2 weeks",
+            "Begin a cardiac rehabilitation program under medical supervision",
+            "Adopt a low-sodium, low-fat diet with less than 1,500mg sodium daily",
+            "Consider medications as prescribed (statins, anti-hypertensives, etc.)",
+            "Monitor blood pressure daily and keep a health journal",
+            "Practice stress reduction techniques like meditation or deep breathing",
+            "Limit physical exertion according to doctor's recommendations"
+        ],
+        "ai_recommendations": "AI analysis of your health parameters indicates possible early-stage cardiovascular issues. Recommended treatments include personalized medication timing based on your circadian rhythm, targeted supplement protocols focusing on CoQ10 and Omega-3s, and remote monitoring through smart devices that can alert healthcare providers about concerning changes in your vitals.",
+        "natural_remedies": "Consider evidence-based natural approaches like hawthorn extract, garlic supplements, CoQ10, fish oil, and controlled breathing exercises. These should complement but never replace medical treatment."
+    },
+    2: {
+        "name": "Potential Heart Disease Risk",
+        "risk_level": "Moderate Risk",
+        "suggestions": "Follow up with your doctor within a month. Implement heart-healthy lifestyle changes now.",
+        "detailed_suggestions": [
+            "Reduce saturated fat intake to less than 7% of daily calories",
+            "Exercise moderately for 30 minutes at least 5 days a week",
+            "Reduce stress through mindfulness practices",
+            "Monitor blood pressure weekly",
+            "Limit processed foods and added sugars",
+            "Consider a sleep study if you experience poor sleep quality"
+        ],
+        "ai_recommendations": "AI pattern recognition in your biomarkers suggests pre-clinical cardiovascular strain. Recommended interventions include intermittent fasting adapted to your metabolic profile, targeted exercise focusing on high-intensity interval training 2-3 times weekly, and heart rate variability training using biofeedback applications.",
+        "natural_remedies": "Evidence suggests benefits from magnesium supplementation, taurine, hibiscus tea, and beetroot juice to support cardiovascular health. Consult with a healthcare provider before starting any supplements."
+    }
+}
 
-# ---------------- LOGIN ---------------- 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        try:
-            email = request.form.get("email", "").strip()
-            password = request.form.get("password", "").strip()
-            
-            logger.info(f"Login attempt for email: {email}")
+# Function to generate AI-based health insights
+def generate_health_insights(input_data, prediction, confidence):
+    insights = []
+    
+    # Disease Risk Prediction
+    if prediction == 1:
+        insights.append(f"⚠️ High risk of heart disease detected. Confidence: {confidence:.2f}%. Consult a cardiologist immediately.")
+    else:
+        insights.append(f"✅ No signs of heart disease detected. Confidence: {confidence:.2f}%. Maintain a healthy lifestyle.")
+    
+    # Cholesterol Analysis
+    cholesterol = input_data.get('chol', None)
+    if cholesterol:
+        if cholesterol > 240:
+            insights.append(f"🔴 Cholesterol Level: {cholesterol} mg/dL (High) → Consider a low-fat diet and regular exercise.")
+        elif 200 <= cholesterol <= 240:
+            insights.append(f"🟡 Cholesterol Level: {cholesterol} mg/dL (Borderline High) → Monitor regularly & reduce saturated fats.")
+        else:
+            insights.append(f"🟢 Cholesterol Level: {cholesterol} mg/dL (Normal). Keep up the good work!")
 
-            if not email or not password:
-                logger.warning("Login failed: Empty email or password")
-                return render_template("login.html", error="Email and password are required")
+    # Blood Pressure Analysis
+    blood_pressure = input_data.get('trestbps', None)
+    if blood_pressure:
+        if blood_pressure > 140:
+            insights.append(f"🔴 Blood Pressure: {blood_pressure} mmHg (Hypertension) → Monitor regularly & reduce salt intake.")
+        elif 120 <= blood_pressure <= 140:
+            insights.append(f"🟡 Blood Pressure: {blood_pressure} mmHg (Pre-hypertension) → Exercise & maintain a balanced diet.")
+        else:
+            insights.append(f"🟢 Blood Pressure: {blood_pressure} mmHg (Normal). Good cardiovascular health!")
 
-            user = get_user_by_email(email)
-            logger.info(f"User lookup result: {user is not None}")
+    # Age-based risk factor
+    age = input_data.get('age', 0)
+    if age > 50:
+        insights.append(f"🔶 Age: {age} years (Higher risk) → Regular check-ups recommended.")
+    else:
+        insights.append(f"🟢 Age: {age} years (Lower risk). Continue a healthy lifestyle!")
 
-            if not user:
-                logger.warning(f"Login failed: User not found for email: {email}")
-                return render_template("login.html", error="No account found. Please register first or check your email.")
+    # Maximum heart rate achieved
+    thalach = input_data.get('thalach', None)
+    if thalach:
+        if thalach > 202:
+            insights.append(f"🔴 Maximum Heart Rate: {thalach} bpm (Very High) → Immediate medical consultation recommended.")
+        elif thalach > 149:
+            insights.append(f"🟡 Maximum Heart Rate: {thalach} bpm (Above Average) → Regular monitoring advised.")
+        else:
+            insights.append(f"🟢 Maximum Heart Rate: {thalach} bpm (Normal). Keep up with healthy activities!")
 
-            if user.get("password") != password:
-                logger.warning(f"Login failed: Invalid password for email: {email}")
-                return render_template("login.html", error="Invalid password. Please try again.")
+    # Chest pain
+    cp = input_data.get('cp', None)
+    if cp is not None:
+        if cp == 0:
+            insights.append("🟡 Typical Angina detected → Monitor chest pain during exertion.")
+        elif cp == 1:
+            insights.append("🟠 Atypical Angina detected → Consult a doctor for further evaluation.")
+        elif cp == 2:
+            insights.append("🟢 Non-anginal Pain detected → May not be heart-related.")
+        elif cp == 3:
+            insights.append("🟣 Asymptomatic → No chest pain, but other risks should be monitored.")
 
-            # Set session
-            user_id = user.get("_id")
-            session["user_id"] = str(user_id) if user_id else email
-            session["name"] = user.get("name", "User")
-            session["email"] = user.get("email", email)
-            
-            logger.info(f"Login successful for user: {email}, redirecting to intermediate")
-            return redirect(url_for("intermediate"))
-        except Exception as e:
-            logger.error(f"Login error: {e}", exc_info=True)
-            return render_template("login.html", error="An error occurred. Please try again.")
+    # Exercise-induced angina
+    exang = input_data.get('exang', None)
+    if exang is not None:
+        if exang == 1:
+            insights.append("⚠️ Exercise-induced angina detected. Consider stress tests and lifestyle modifications.")
+        elif exang == 0:
+            insights.append("✅ No exercise-induced angina detected. Good sign!")
 
-    if "user_id" in session:
-        return redirect(url_for("intermediate"))
+    # ST depression induced by exercise
+    oldpeak = input_data.get('oldpeak', None)
+    if oldpeak is not None:
+        if oldpeak > 2:
+            insights.append(f"🔴 ST Depression: {oldpeak} (High) → Consult a cardiologist.")
+        elif oldpeak > 1:
+            insights.append(f"🟡 ST Depression: {oldpeak} (Moderate) → Requires further evaluation.")
+        else:
+            insights.append(f"🟢 ST Depression: {oldpeak} (Low) → Normal range.")
 
-    return render_template("login.html")
+    # Slope of the ST segment
+    slope = input_data.get('slope', None)
+    if slope is not None:
+        if slope == 0:
+            insights.append("🔴 Downsloping ST segment detected → High risk of heart disease.")
+        elif slope == 1:
+            insights.append("🟡 Flat ST segment detected → Moderate risk, monitor closely.")
+        elif slope == 2:
+            insights.append("🟢 Upsloping ST segment detected → Lower risk, good sign.")
 
-# ---------------- REGISTER ---------------- 
-@app.route("/register", methods=["POST"])
-def register():
+    # Number of major vessels colored by fluoroscopy
+    ca = input_data.get('ca', None)
+    if ca is not None:
+        insights.append(f"🔍 Major vessels colored by fluoroscopy: {ca}. Higher values may indicate increased risk.")
+
+    # Thalassemia type
+    thal = input_data.get('thal', None)
+    if thal is not None:
+        if thal == 1:
+            insights.append("🔴 Thalassemia: Fixed defect detected → Increased heart disease risk.")
+        elif thal == 2:
+            insights.append("🟡 Thalassemia: Normal blood flow → No major risk.")
+        elif thal == 3:
+            insights.append("🟢 Thalassemia: Reversible defect detected → Manageable with lifestyle changes.")
+
+    # Sex-based risk
+    sex = input_data.get('sex', None)
+    if sex is not None and sex == 1 and prediction == 1:
+        insights.append("🧑‍⚕️ Men are at a higher risk of heart disease. Monitor cholesterol & BP levels.")
+
+    return "<br>".join(insights)
+
+def predict_disease(input_data):
+    """Make prediction with error handling"""
     try:
-        name = request.form.get("name", "").strip()
-        email = request.form.get("email", "").strip()
-        password = request.form.get("password", "").strip()
-
-        if not name or not email or not password:
-            return render_template("login.html", error="All fields are required", show_register=True)
-
-        if get_user_by_email(email):
-            return render_template("login.html", error="User already exists. Please login instead.", show_register=True)
-
-        user_data = {
-            "name": name,
-            "email": email,
-            "password": password
-        }
+        if not model_loaded:
+            return 0, 50, 0, "Model not loaded. Please ensure model.pkl exists."
         
-        user_id = save_user(user_data)
-
-        session["user_id"] = user_id
-        session["name"] = name
-        session["email"] = email
-
-        return redirect(url_for("intermediate"))
+        # Create feature array
+        features = np.zeros((1, len(feature_names)))
+        
+        # Fill in the features
+        for i, feature in enumerate(feature_names):
+            if feature in input_data:
+                features[0, i] = float(input_data[feature])
+        
+        # Apply preprocessing
+        features_imputed = imputer.transform(features)
+        features_scaled = scaler.transform(features_imputed)
+        
+        # Get prediction
+        try:
+            probabilities = model.predict_proba(features_scaled)[0]
+            confidence = probabilities[1] * 100
+            
+            # Determine risk level based on probability
+            if confidence < 30:
+                prediction = 0
+                risk_level = 0
+            elif confidence < 70:
+                prediction = 0 if confidence < 50 else 1
+                risk_level = 2
+            else:
+                prediction = 1
+                risk_level = 1
+        except:
+            prediction = model.predict(features_scaled)[0]
+            confidence = 90 if prediction == 1 else 85
+            risk_level = 1 if prediction == 1 else 0
+        
+        health_insights = generate_health_insights(input_data, prediction, confidence)
+        return prediction, confidence, risk_level, health_insights
+        
     except Exception as e:
-        logger.error(f"Registration error: {e}")
-        return render_template("login.html", error="An error occurred during registration. Please try again.", show_register=True)
+        logging.error(f"Prediction error: {e}")
+        return 0, 50, 0, f"Prediction error: {str(e)}"
 
-# ---------------- LOGOUT ----------------
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
-
-# ---------------- INTERMEDIATE ---------------- 
-@app.route("/intermediate")
-@requires_auth
-def intermediate():
-    return render_template("intermediate2.html", username=session.get("name", "User"))
-
-# ---------------- HOME ---------------- 
+# Routes
 @app.route("/")
+def main():
+    # Directly show the intermediate page
+    return render_template("intermediate2.html", username="Guest")
+
+@app.route("/intermediate")
+def intermediate():
+    # Show intermediate page
+    return render_template("intermediate2.html", username="Guest")
+
 @app.route("/home")
-@requires_auth
 def home():
     return render_template("index.html")
 
-# ---------------- ABOUT US ---------------- 
-@app.route("/aboutUs")
-@requires_auth
-def about_us():
-    return render_template("aboutUs.html")
-
-# ---------------- HEART DISEASE MODEL ---------------- 
-@app.route("/heart_disease_model")
-@requires_auth
+@app.route("/heart-disease-model")
 def heart_disease_model():
-    return redirect(url_for("home"))
+    return render_template("index.html")
 
-# ---------------- GET HISTORY ---------------- 
-@app.route("/get_history", methods=["GET"])
-@requires_auth
-def get_history():
-    try:
-        user_id = session.get("user_id")
-        predictions = get_user_predictions(user_id)
-        return jsonify({
-            "success": True,
-            "predictions": [
-                {
-                    "prediction": p.get("prediction", 0),
-                    "confidence": p.get("confidence", 0),
-                    "timestamp": p.get("timestamp").isoformat() if hasattr(p.get("timestamp"), "isoformat") else str(p.get("timestamp", ""))
-                }
-                for p in predictions
-            ]
-        })
-    except Exception as e:
-        logger.error(f"Error fetching history: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-# ---------------- PREDICT ---------------- 
 @app.route("/predict", methods=["POST"])
-@requires_auth
 def predict():
     try:
-        input_data = {f: float(request.form.get(f, 0)) for f in feature_names}
-
-        X = np.zeros((1, len(feature_names)))
-        for i, f in enumerate(feature_names):
-            X[0, i] = input_data.get(f, 0)
-
-        X = scaler.transform(imputer.transform(X))
-        pred = model.predict(X)[0]
-        confidence = max(model.predict_proba(X)[0]) * 100
-
-        prediction_data = {
-            "user_id": session.get("user_id"),
-            "prediction": int(pred),
-            "confidence": float(confidence),
-            "timestamp": datetime.now()
+        # Get form values
+        input_data = {}
+        for feature in feature_names:
+            if feature in request.form:
+                input_data[feature] = float(request.form[feature])
+        
+        # Make prediction
+        prediction, confidence, risk_level, health_insights = predict_disease(input_data)
+        
+        # Get disease info
+        disease_name = disease_info[risk_level]["name"]
+        risk_level_text = disease_info[risk_level]["risk_level"]
+        suggestion = disease_info[risk_level]["suggestions"]
+        detailed_suggestions = "<ul>" + "".join([f"<li>{s}</li>" for s in disease_info[risk_level]["detailed_suggestions"]]) + "</ul>"
+        ai_recommendations = disease_info[risk_level]["ai_recommendations"]
+        
+        # Natural remedies
+        natural_remedies = ""
+        if risk_level > 0:
+            natural_remedies = f"<div class='natural-remedies'><h3>🌿 Natural Approaches:</h3><p>{disease_info[risk_level]['natural_remedies']}</p></div>"
+        
+        # Health tips
+        health_tips = """
+        <div class="health-tips">
+            <h3>💡 General Health Tips:</h3>
+            <ul>
+                <li>🚶‍♂️ Regular exercise (30 min/day) helps reduce heart risk.</li>
+                <li>🍏 Eat a heart-healthy diet (more fruits, vegetables, and whole grains).</li>
+                <li>🚫 Avoid smoking & limit alcohol intake.</li>
+                <li>😴 Ensure 7-8 hours of quality sleep daily.</li>
+                <li>🧘 Practice stress-reduction techniques daily.</li>
+            </ul>
+        </div>
+        """
+        
+        # Doctor recommendations
+        doctor_recommendations = ""
+        if risk_level > 0:
+            doctor_recommendations = """
+            <div class="doctor-recommendations">
+                <h3>👨‍⚕️ Recommended Specialists:</h3>
+                <div class="doctor-card">
+                    <h4>Dr. John Smith, MD</h4>
+                    <p>Cardiology Specialist</p>
+                    <p>Rating: ⭐⭐⭐⭐⭐ (4.9/5)</p>
+                    <p>Location: Medical Center Hospital</p>
+                </div>
+                <div class="doctor-card">
+                    <h4>Dr. Sarah Johnson, MD</h4>
+                    <p>Cardiovascular Disease Specialist</p>
+                    <p>Rating: ⭐⭐⭐⭐⭐ (4.8/5)</p>
+                    <p>Location: Heart Health Clinic</p>
+                </div>
+            </div>
+            """
+        
+        # Test recommendations
+        test_recommendations = ""
+        if risk_level > 0:
+            test_recommendations = """
+            <div class="test-recommendations">
+                <h3>🔬 Recommended Tests:</h3>
+                <ul>
+                    <li><strong>Echocardiogram:</strong> Uses sound waves to produce images of your heart.</li>
+                    <li><strong>Stress Test:</strong> Shows how your heart works during physical activity.</li>
+                    <li><strong>Coronary Calcium Scan:</strong> Measures the amount of calcium in the walls of your heart's arteries.</li>
+                    <li><strong>Holter Monitoring:</strong> Records heart rhythm for 24-48 hours.</li>
+                </ul>
+            </div>
+            """
+        
+        # Telemedicine options
+        telemedicine_options = """
+        <div class="telemedicine-options">
+            <h3>💻 Telemedicine Options:</h3>
+            <ul>
+                <li><strong>Virtual Cardiology Consultation</strong> - Schedule a video call with a cardiologist within 24-48 hours.</li>
+                <li><strong>Remote Monitoring</strong> - Consider enrolling in a heart monitoring program that allows doctors to track your vitals remotely.</li>
+                <li><strong>Online Support Groups</strong> - Connect with others managing similar heart health conditions.</li>
+            </ul>
+        </div>
+        """
+        
+        # Store prediction data in session
+        session['prediction_data'] = {
+            'prediction_text': f"Prediction: {disease_name} ({risk_level_text}) - Confidence: {confidence:.1f}%",
+            'suggestion_text': f"Suggestion: {suggestion}",
+            'detailed_suggestions': detailed_suggestions,
+            'ai_recommendations': f"<div class='ai-recommendations'><h3>🤖 AI-Enhanced Recommendations:</h3><p>{ai_recommendations}</p></div>",
+            'natural_remedies': natural_remedies,
+            'health_insights': f"<div class='health-insights'><h3>📊 Personalized Health Insights:</h3>{health_insights}</div>",
+            'health_tips': health_tips,
+            'doctor_recommendations': doctor_recommendations,
+            'test_recommendations': test_recommendations,
+            'telemedicine_options': telemedicine_options
         }
         
-        save_prediction(prediction_data)
-
-        # Determine risk level
-        has_disease = bool(pred)
-        risk_level = "High Risk" if has_disease else "Low Risk"
-        risk_class = "risk-high" if has_disease else "risk-low"
+        # Store in session history
+        if 'prediction_history' not in session:
+            session['prediction_history'] = []
         
-        # Generate prediction text
-        prediction_text = f"<h3 style='margin: 0; font-size: 20px; color: {'#ef4444' if has_disease else '#10b981'};'>{'Heart Disease Detected' if has_disease else 'No Heart Disease Detected'}</h3>"
+        session['prediction_history'].append({
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'prediction': int(prediction),
+            'confidence': float(confidence),
+            'risk_level': int(risk_level),
+            'disease_name': disease_name,
+            'form_data': input_data
+        })
         
-        # Generate health insights
-        health_insights = ""
-        if has_disease:
-            health_insights = """
-            <div style='padding: 12px; background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px; margin-bottom: 12px;'>
-                <strong style='color: #ef4444;'>⚠️ Risk Detected:</strong> The analysis indicates a potential risk of heart disease. Please consult with a healthcare professional.
-            </div>
-            """
-        else:
-            health_insights = """
-            <div style='padding: 12px; background: #f0fdf4; border-left: 4px solid #10b981; border-radius: 4px; margin-bottom: 12px;'>
-                <strong style='color: #10b981;'>✓ Low Risk:</strong> The analysis shows a low risk of heart disease. Continue maintaining a healthy lifestyle.
-            </div>
-            """
+        # Redirect to the prediction results page
+        return redirect(url_for('prediction_results'))
         
-        # Generate detailed suggestions
-        if has_disease:
-            detailed_suggestions = """
-            <div class="rec-grid">
-                <div class="rec-card">
-                    <h4>Immediate Actions</h4>
-                    <p>Schedule an appointment with a cardiologist within 1-2 weeks. Monitor your symptoms and keep a health journal.</p>
-                </div>
-                <div class="rec-card">
-                    <h4>Lifestyle Changes</h4>
-                    <p>Adopt a heart-healthy diet (Mediterranean or DASH diet), reduce sodium intake, and increase physical activity gradually.</p>
-                </div>
-                <div class="rec-card">
-                    <h4>Medication Review</h4>
-                    <p>Review all current medications with your doctor. Some medications may need adjustment or new prescriptions may be needed.</p>
-                </div>
-            </div>
-            """
-        else:
-            detailed_suggestions = """
-            <div class="rec-grid">
-                <div class="rec-card">
-                    <h4>Maintain Healthy Habits</h4>
-                    <p>Continue with regular exercise, balanced diet, and stress management. Regular check-ups are still important.</p>
-                </div>
-                <div class="rec-card">
-                    <h4>Preventive Care</h4>
-                    <p>Stay active, maintain a healthy weight, avoid smoking, and limit alcohol consumption to reduce future risk.</p>
-                </div>
-                <div class="rec-card">
-                    <h4>Regular Monitoring</h4>
-                    <p>Schedule annual health check-ups and monitor blood pressure, cholesterol, and blood sugar levels regularly.</p>
-                </div>
-            </div>
-            """
-        
-        # Generate AI recommendations
-        ai_recommendations = f"""
-        <div style='padding: 16px; background: #f0f9ff; border-radius: 8px; margin-bottom: 16px;'>
-            <h4 style='margin-bottom: 12px; color: #1a56db;'>AI Analysis Summary</h4>
-            <p style='margin-bottom: 8px;'>Based on the machine learning model analysis with <strong>{confidence:.2f}% confidence</strong>, the prediction indicates:</p>
-            <ul style='margin-left: 20px; color: #4b5563;'>
-                <li>Model accuracy and reliability assessment</li>
-                <li>Risk factor analysis based on input parameters</li>
-                <li>Comparative analysis with similar patient profiles</li>
-            </ul>
-        </div>
-        """
-        
-        natural_remedies = """
-        <div style='padding: 16px; background: #fefce8; border-radius: 8px;'>
-            <h4 style='margin-bottom: 12px; color: #ca8a04;'>Natural Support (Consult Doctor First)</h4>
-            <ul style='margin-left: 20px; color: #4b5563;'>
-                <li>Omega-3 fatty acids (fish oil, flaxseeds)</li>
-                <li>Coenzyme Q10 supplements</li>
-                <li>Garlic (may help with blood pressure)</li>
-                <li>Hawthorn berry (traditional heart support)</li>
-            </ul>
-            <p style='margin-top: 12px; font-size: 13px; color: #6b7280;'><strong>Note:</strong> Always consult with your healthcare provider before starting any supplements.</p>
-        </div>
-        """
-        
-        # Generate test recommendations
-        if has_disease:
-            test_recommendations = """
-            <div class="test-list">
-                <div class="test-item">
-                    <div class="test-name">Electrocardiogram (ECG)</div>
-                    <div class="test-desc">Assess heart rhythm and electrical activity</div>
-                    <span class="priority priority-high">High Priority</span>
-                </div>
-                <div class="test-item">
-                    <div class="test-name">Echocardiogram</div>
-                    <div class="test-desc">Ultrasound imaging of heart structure and function</div>
-                    <span class="priority priority-high">High Priority</span>
-                </div>
-                <div class="test-item">
-                    <div class="test-name">Stress Test</div>
-                    <div class="test-desc">Evaluate heart function during physical activity</div>
-                    <span class="priority priority-medium">Medium Priority</span>
-                </div>
-                <div class="test-item">
-                    <div class="test-name">Blood Tests (Lipid Panel)</div>
-                    <div class="test-desc">Check cholesterol and triglyceride levels</div>
-                    <span class="priority priority-high">High Priority</span>
-                </div>
-            </div>
-            """
-        else:
-            test_recommendations = """
-            <div class="test-list">
-                <div class="test-item">
-                    <div class="test-name">Annual Physical Exam</div>
-                    <div class="test-desc">Routine health check-up and blood work</div>
-                    <span class="priority priority-low">Routine</span>
-                </div>
-                <div class="test-item">
-                    <div class="test-name">Blood Pressure Monitoring</div>
-                    <div class="test-desc">Regular home monitoring recommended</div>
-                    <span class="priority priority-low">Routine</span>
-                </div>
-            </div>
-            """
-        
-        # Generate doctor recommendations
-        if has_disease:
-            doctor_recommendations = """
-            <div class="specialist-list" style='margin-top: 24px;'>
-                <div class="specialist-item">
-                    <div class="specialist-name">Cardiologist</div>
-                    <div class="specialist-desc">Specialist in heart and cardiovascular diseases. Schedule appointment within 1-2 weeks.</div>
-                </div>
-                <div class="specialist-item">
-                    <div class="specialist-name">Primary Care Physician</div>
-                    <div class="specialist-desc">Coordinate care and manage overall health</div>
-                </div>
-            </div>
-            """
-        else:
-            doctor_recommendations = """
-            <div class="specialist-list" style='margin-top: 24px;'>
-                <div class="specialist-item">
-                    <div class="specialist-name">Primary Care Physician</div>
-                    <div class="specialist-desc">Continue regular annual check-ups and preventive care</div>
-                </div>
-            </div>
-            """
-        
-        # Generate health tips
-        health_tips = """
-        <div class="tip-list">
-            <div class="tip-item">
-                <div class="tip-icon"><i class="fas fa-dumbbell"></i></div>
-                <div class="tip-content">
-                    <h4>Regular Exercise</h4>
-                    <p>Aim for at least 150 minutes of moderate-intensity exercise per week. Activities like brisk walking, swimming, or cycling are excellent for heart health.</p>
-                </div>
-            </div>
-            <div class="tip-item">
-                <div class="tip-icon"><i class="fas fa-apple-alt"></i></div>
-                <div class="tip-content">
-                    <h4>Heart-Healthy Diet</h4>
-                    <p>Focus on fruits, vegetables, whole grains, lean proteins, and healthy fats. Limit processed foods, saturated fats, and added sugars.</p>
-                </div>
-            </div>
-            <div class="tip-item">
-                <div class="tip-icon"><i class="fas fa-bed"></i></div>
-                <div class="tip-content">
-                    <h4>Quality Sleep</h4>
-                    <p>Get 7-9 hours of quality sleep per night. Poor sleep can contribute to heart disease risk factors.</p>
-                </div>
-            </div>
-            <div class="tip-item">
-                <div class="tip-icon"><i class="fas fa-smoking-ban"></i></div>
-                <div class="tip-content">
-                    <h4>Avoid Smoking</h4>
-                    <p>If you smoke, quitting is one of the best things you can do for your heart health. Seek support if needed.</p>
-                </div>
-            </div>
-        </div>
-        """
-        
-        # Generate telemedicine options
-        telemedicine_options = """
-        <div style='margin-top: 24px; padding: 16px; background: #f0f9ff; border-radius: 8px;'>
-            <h4 style='margin-bottom: 12px; color: #1a56db;'>Telemedicine Options</h4>
-            <p style='margin-bottom: 12px; color: #4b5563;'>Consider these telemedicine services for convenient healthcare access:</p>
-            <ul style='margin-left: 20px; color: #4b5563;'>
-                <li>Virtual consultations with cardiologists</li>
-                <li>Remote monitoring of vital signs</li>
-                <li>Online prescription management</li>
-                <li>Digital health coaching programs</li>
-            </ul>
-        </div>
-        """
-
-        return render_template(
-            "prediction_results.html",
-            prediction_text=prediction_text,
-            suggestion_text=f"Confidence: {confidence:.2f}%",
-            health_insights=health_insights,
-            detailed_suggestions=detailed_suggestions,
-            ai_recommendations=ai_recommendations,
-            natural_remedies=natural_remedies,
-            test_recommendations=test_recommendations,
-            doctor_recommendations=doctor_recommendations,
-            health_tips=health_tips,
-            telemedicine_options=telemedicine_options
-        )
     except Exception as e:
-        logger.error(f"Error in prediction: {e}")
-        return render_template(
-            "prediction_results.html",
-            prediction_text="<h3 style='color: #ef4444;'>Error: Prediction failed</h3>",
-            suggestion_text=f"Please try again. Error: {str(e)}",
-            health_insights="",
-            detailed_suggestions="",
-            ai_recommendations="",
-            natural_remedies="",
-            test_recommendations="",
-            doctor_recommendations="",
-            health_tips="",
-            telemedicine_options=""
-        ), 500
+        logging.error(f"Prediction route error: {e}")
+        return render_template("index.html", 
+                             prediction_text="Error occurred", 
+                             suggestion_text=str(e))
 
-# ---------------- ERROR HANDLERS ---------------- 
+@app.route("/prediction-results")
+def prediction_results():
+    # Check if there are prediction results in the session
+    if 'prediction_data' not in session:
+        return redirect(url_for('home'))
+    
+    # Get prediction data from session
+    prediction_data = session['prediction_data']
+    
+    return render_template(
+        "prediction_results.html", 
+        prediction_text=prediction_data['prediction_text'],
+        suggestion_text=prediction_data['suggestion_text'],
+        detailed_suggestions=prediction_data['detailed_suggestions'],
+        ai_recommendations=prediction_data['ai_recommendations'],
+        natural_remedies=prediction_data.get('natural_remedies', ''),
+        health_insights=prediction_data['health_insights'],
+        health_tips=prediction_data['health_tips'],
+        doctor_recommendations=prediction_data.get('doctor_recommendations', ''),
+        test_recommendations=prediction_data.get('test_recommendations', ''),
+        telemedicine_options=prediction_data['telemedicine_options']
+    )
+
+@app.route('/history', methods=['GET'])
+def get_history():
+    # Return session-based history
+    history = session.get('prediction_history', [])
+    
+    formatted_history = []
+    for item in history:
+        formatted_history.append({
+            'date': item.get('timestamp', 'N/A'),
+            'prediction': item.get('disease_name', 'Unknown'),
+            'confidence': item.get('confidence', 'N/A'),
+            'age': item.get('form_data', {}).get('age'),
+            'sex': item.get('form_data', {}).get('sex'),
+            'chol': item.get('form_data', {}).get('chol')
+        })
+    
+    return jsonify(formatted_history)
+
+@app.route('/aboutUs')
+def aboutus():
+    return render_template('aboutUs.html')
+
+# Error handlers
 @app.errorhandler(404)
-def not_found(error):
-    return render_template("login.html", error="Page not found"), 404
+def not_found(e):
+    return "Page not found", 404
 
 @app.errorhandler(500)
-def internal_error(error):
-    logger.error(f"Internal server error: {error}")
-    return render_template("login.html", error="Internal server error. Please try again."), 500
+def internal_error(e):
+    logging.error(f"Internal error: {e}")
+    return "Internal server error", 500
 
-# ---------------- RUN ---------------- 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 7860))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
