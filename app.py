@@ -7,11 +7,16 @@ from bson.objectid import ObjectId
 from datetime import datetime
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 
 
 # Initialize Flask app consistently
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', os.urandom(25))  # Required for session management
+app.secret_key = "supersecretkey"
+app.config["DEBUG"] = True
+
 
 def clear_session_on_restart():
     session.clear()
@@ -489,60 +494,59 @@ from flask import flash
 def register():
     try:
         db = get_db()
-        users_collection = db["users"]
+        users = db["users"]
+
+        print("REGISTER FORM:", dict(request.form))
 
         username = request.form.get("username")
         email = request.form.get("email")
         password = request.form.get("password")
 
         if not username or not email or not password:
-            flash("All fields are required")
-            return redirect(url_for("login_page"))
+            return "Missing fields", 400
 
-        if users_collection.find_one({"email": email}):
-            flash("Email already exists")
-            return redirect(url_for("login_page"))
+        if users.find_one({"email": email}):
+            return "User already exists", 400
 
         hashed_password = generate_password_hash(password)
 
-        users_collection.insert_one({
+        users.insert_one({
             "username": username,
             "email": email,
             "password": hashed_password
         })
 
-        flash("Account created successfully")
         return redirect(url_for("login_page"))
 
     except Exception as e:
-        print("REGISTER ERROR:", e)
+        print("REGISTER ERROR >>>", e)
         return "Internal Server Error", 500
 
 
 # Login Route
 
-
-@app.route('/login', methods=["POST"])
+@app.route("/login", methods=["POST"])
 def login():
     try:
         db = get_db()
-        users_collection = db["users"]
+        users = db["users"]
+
+        print("LOGIN FORM:", dict(request.form))
 
         email = request.form.get("email")
         password = request.form.get("password")
 
-        user = users_collection.find_one({'email': email})
+        user = users.find_one({"email": email})
 
         if user and check_password_hash(user["password"], password):
-            session['user_id'] = str(user['_id'])
-            session['email'] = user['email']
-            session['name'] = user.get('username', 'User')
-            return redirect(url_for('intermediate'))
-        else:
-            return "Invalid credentials. Try again."
+            session["user_id"] = str(user["_id"])
+            session["username"] = user["username"]
+            return redirect(url_for("intermediate"))
+
+        return "Invalid credentials", 401
 
     except Exception as e:
-        print("LOGIN ERROR:", e)
+        print("LOGIN ERROR >>>", e)
         return "Internal Server Error", 500
 
 @app.route('/aboutUs')
