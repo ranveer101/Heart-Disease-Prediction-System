@@ -73,6 +73,9 @@ disease_info = {
         "natural_remedies": "Evidence suggests benefits from magnesium supplementation, taurine, hibiscus tea, and beetroot juice to support cardiovascular health. Consult with a healthcare provider before starting any supplements."
     }
 }
+@app.route("/logout")
+def logout():
+    return redirect(url_for("main"))
 
 # Function to generate AI-based health insights
 def generate_health_insights(input_data, prediction, confidence):
