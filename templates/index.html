@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Disease Prediction</title>
+    <link rel="stylesheet" href="../static/styles.css">
+    <style>
+        /* Additional styles for new elements */
+        .results-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .health-insights {
+            background-color: #fff8e6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .health-insights h3 {
+            color: #d17000;
+            margin-top: 0;
+        }
+        
+        .suggestion-text {
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+        
+        .detailed-suggestions, .ai-recommendations, .natural-remedies, .health-tips, .doctor-recommendations, .test-recommendations, .telemedicine-options {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .detailed-suggestions {
+            background-color: #e6f7ff;
+            border-left: 4px solid #1890ff;
+        }
+        
+        .ai-recommendations {
+            background-color: #f0f5ff;
+            border-left: 4px solid #2f54eb;
+        }
+        
+        .natural-remedies {
+            background-color: #f6ffed;
+            border-left: 4px solid #52c41a;
+        }
+        
+        .health-tips {
+            background-color: #f9f0ff;
+            border-left: 4px solid #722ed1;
+        }
+        
+        .doctor-recommendations {
+            background-color: #e6f9ff;
+            border-left: 4px solid #13c2c2;
+        }
+        
+        .test-recommendations {
+            background-color: #fff2e8;
+            border-left: 4px solid #fa541c;
+        }
+        
+        .telemedicine-options {
+            background-color: #f9f0ff;
+            border-left: 4px solid #9254de;
+        }
+        
+        .detailed-suggestions h3, .ai-recommendations h3, .natural-remedies h3, .health-tips h3, 
+        .doctor-recommendations h3, .test-recommendations h3, .telemedicine-options h3 {
+            margin-top: 0;
+            color: #096dd9;
+        }
+        
+        .detailed-suggestions ul, .health-tips ul, .test-recommendations ul, .telemedicine-options ul {
+            padding-left: 20px;
+        }
+        
+        .detailed-suggestions li, .health-tips li, .test-recommendations li, .telemedicine-options li {
+            margin-bottom: 8px;
+        }
+        
+        #predi {
+            color: #cf1322;
+            margin-bottom: 10px;
+            font-size: 22px;
+        }
+        
+        .doctor-card {
+            background-color: #ffffff;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .doctor-card h4 {
+            color: #13c2c2;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        
+        .doctor-card p {
+            margin: 5px 0;
+        }
+        
+        /* Help box styles */
+        .help-box {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            
+        }
+        
+        .help-box h2 {
+            color: #096dd9;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .help-accordion {
+            max-width: 100%;
+        }
+        
+        .help-item {
+            margin-bottom: 10px;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .help-header {
+            background-color: #f5f5f5;
+            padding: 12px 15px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #333;
+            position: relative;
+        }
+        
+        .help-header:hover {
+            background-color: #e6f7ff;
+        }
+        
+        .help-header:after {
+            content: '+';
+            position: absolute;
+            right: 15px;
+            font-weight: bold;font
+        }
+        
+        .help-item.active .help-header:after {
+            content: '-';
+        }
+        
+        .help-content {
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease;
+        }
+        
+        .help-item.active .help-content {
+            padding: 15px;
+            max-height: 500px;
+        }
+        
+        .help-content p {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        
+        .help-content p:last-child {
+            margin-bottom: 0;
+        }
+        .help-box {
+            color:black;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="logo">
+            <img src="../static/vecteezy_blood-drop-icon-medical-red-icon-with-blood-drop-pulse_24971544.png" alt="Project Logo">
+            <span>Heart Disease Prediction</span>
+        </div>
+        <a href="#" class="nav-link">Nearby Hospitals</a>
+    </nav>
+    
+    <!-- Background Slideshow -->
+    <div class="slideshow-container">
+        <div class="slideshow">
+            <img src="../static/istockphoto-1128931450-612x612.jpg" alt="Background Image 1">
+            <img src="../static/photo-1530026186672-2cd00ffc50fe copy.avif" alt="Background Image 2">
+            <img src="../static/pexels-photo-30784707.webp" alt="Background Image 3">
+            <img src="../static/pexels-photo-28585011.webp" alt="Background Image 4">
+        </div>
+    </div>
+    
+    <!-- Form Container -->
+    <div class="dashboard">
+        <div class="form-container">
+            <form id="heart-form" action="{{url_for('predict')}}" method="post">
+                <h1>Heart Disease Prediction</h1>
+                
+                <label for="age">Age</label>
+                <input type="number" id="age" name="age" required>
+                
+                <label for="sex">Sex (1 = Male, 0 = Female)</label>
+                <input type="number" id="sex" name="sex" min="0" max="1" required>
+                
+                <label for="cp">Chest Pain Type (0-3)</label>
+                <select id="cp" name="cp" required>
+                    <option value="0">0 - Typical Angina</option>
+                    <option value="1">1 - Atypical Angina</option>
+                    <option value="2">2 - Non-anginal Pain</option>
+                    <option value="3">3 - Asymptomatic</option>
+                </select>
+                
+                <label for="trestbps">Resting Blood Pressure (mm Hg)</label>
+                <input type="number" id="trestbps" name="trestbps" required>
+                
+                <label for="chol">Cholesterol (mg/dL)</label>
+                <input type="number" id="chol" name="chol" required>
+                
+                <label for="fbs">Fasting Blood Sugar > 120 mg/dL (1 = Yes, 0 = No)</label>
+                <select id="fbs" name="fbs" required>
+                    <option value="0">0 - No</option>
+                    <option value="1">1 - Yes</option>
+                </select>
+                
+                <label for="restecg">Resting ECG Results (0-2)</label>
+                <select id="restecg" name="restecg" required>
+                    <option value="0">0 - Normal</option>
+                    <option value="1">1 - ST-T Wave Abnormality</option>
+                    <option value="2">2 - Left Ventricular Hypertrophy</option>
+                </select>
+                
+                <label for="thalach">Maximum Heart Rate Achieved</label>
+                <input type="number" id="thalach" name="thalach" required>
+                
+                <label for="exang">Exercise-Induced Angina (1 = Yes, 0 = No)</label>
+                <select id="exang" name="exang" required>
+                    <option value="0">0 - No</option>
+                    <option value="1">1 - Yes</option>
+                </select>
+                
+                <label for="oldpeak">ST Depression (Oldpeak)</label>
+                <input type="number" step="0.1" id="oldpeak" name="oldpeak" required>
+                
+                <label for="slope">Slope of Peak Exercise ST Segment (0-2)</label>
+                <select id="slope" name="slope" required>
+                    <option value="0">0 - Downsloping</option>
+                    <option value="1">1 - Flat</option>
+                    <option value="2">2 - Upsloping</option>
+                </select>
+                
+                <label for="ca">Number of Major Vessels Colored by Fluoroscopy (0-3)</label>
+                <select id="ca" name="ca" required>
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                </select>
+                
+                <label for="thal">Thalassemia (1-3)</label>
+                <select id="thal" name="thal" required>
+                    <option value="1">1 - Fixed Defect</option>
+                    <option value="2">2 - Normal</option>
+                    <option value="3">3 - Reversible Defect</option>
+                </select>
+                
+                <!-- Added city input for doctor recommendations -->
+                <label for="city">Your City (for doctor recommendations)</label>
+                <input type="text" id="city" name="city" placeholder="e.g. New York, Los Angeles, Chicago">
+                
+                <button type="submit">Predict</button>
+            </form>
+
+            <!-- Help Box  -->
+            <div class="help-box">
+                <h2>Understanding the Form Fields</h2>
+                <div class="help-accordion">
+                    <div class="help-item">
+                        <div class="help-header">Age</div>
+                        <div class="help-content">
+                            <p>Your current age in years. This is an important factor as heart disease risk typically increases with age.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Sex</div>
+                        <div class="help-content">
+                            <p>Select your biological sex: 1 for Male, 0 for Female. Men generally have a higher risk of heart disease than women before menopause.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Chest Pain Type</div>
+                        <div class="help-content">
+                            <p><strong>0 - Typical Angina:</strong> Chest pain that's triggered by physical activity and relieved by rest or medication.</p>
+                            <p><strong>1 - Atypical Angina:</strong> Similar to typical angina but doesn't follow all the classic patterns.</p>
+                            <p><strong>2 - Non-anginal Pain:</strong> Chest pain that's not related to the heart.</p>
+                            <p><strong>3 - Asymptomatic:</strong> No chest pain or discomfort.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Resting Blood Pressure</div>
+                        <div class="help-content">
+                            <p>Your blood pressure (in mm Hg) while at rest. Normal blood pressure is typically around 120/80 mm Hg. Enter the top number (systolic pressure).</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Cholesterol</div>
+                        <div class="help-content">
+                            <p>Your total cholesterol level in mg/dL from a blood test. Healthy levels are typically below 200 mg/dL.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Fasting Blood Sugar</div>
+                        <div class="help-content">
+                            <p>Indicates if your fasting blood sugar is greater than 120 mg/dL:</p>
+                            <p><strong>0 - No:</strong> Your fasting blood sugar is normal (below 120 mg/dL).</p>
+                            <p><strong>1 - Yes:</strong> Your fasting blood sugar is elevated (above 120 mg/dL), which may indicate prediabetes or diabetes.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Resting ECG Results</div>
+                        <div class="help-content">
+                            <p><strong>0 - Normal:</strong> Your resting electrocardiogram (ECG) shows no abnormalities.</p>
+                            <p><strong>1 - ST-T Wave Abnormality:</strong> Some changes in the ST segment and T wave of your ECG, which might indicate heart strain or inadequate blood flow.</p>
+                            <p><strong>2 - Left Ventricular Hypertrophy:</strong> Shows signs that the left ventricle of your heart is enlarged, which can be a sign of high blood pressure or heart disease.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Maximum Heart Rate Achieved</div>
+                        <div class="help-content">
+                            <p>The highest heart rate you've reached during exercise. A typical maximum heart rate can be roughly calculated as 220 minus your age.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Exercise-Induced Angina</div>
+                        <div class="help-content">
+                            <p>Indicates whether you experience chest pain during physical activity:</p>
+                            <p><strong>0 - No:</strong> You don't experience chest pain during exercise.</p>
+                            <p><strong>1 - Yes:</strong> You do experience chest pain when exercising, which may suggest reduced blood flow to your heart.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">ST Depression (Oldpeak)</div>
+                        <div class="help-content">
+                            <p>The difference in the ST segment on an ECG between rest and exercise. Higher values (especially above 2) may indicate more severe heart problems.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Slope of Peak Exercise ST Segment</div>
+                        <div class="help-content">
+                            <p>Describes the shape of the ST segment on an ECG during peak exercise:</p>
+                            <p><strong>0 - Downsloping:</strong> The ST segment slopes downward, which may indicate heart problems.</p>
+                            <p><strong>1 - Flat:</strong> The ST segment is flat, which might indicate moderate heart issues.</p>
+                            <p><strong>2 - Upsloping:</strong> The ST segment slopes upward, which is typically considered normal.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Number of Major Vessels Colored by Fluoroscopy</div>
+                        <div class="help-content">
+                            <p>This indicates how many major blood vessels to the heart show narrowing or blockage during a special X-ray test (fluoroscopy). Higher numbers (1-3) indicate more vessels affected, suggesting more extensive heart disease.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Thalassemia</div>
+                        <div class="help-content">
+                            <p>A blood disorder that affects how your body makes hemoglobin:</p>
+                            <p><strong>1 - Fixed Defect:</strong> Part of the heart muscle shows permanent damage.</p>
+                            <p><strong>2 - Normal:</strong> No blood disorder detected.</p>
+                            <p><strong>3 - Reversible Defect:</strong> Part of the heart muscle shows temporary lack of blood flow, which might improve with treatment.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="help-item">
+                        <div class="help-header">Your City</div>
+                        <div class="help-content">
+                            <p>Enter your city to receive recommendations for heart specialists in your area. This helps us provide you with local medical resources if needed.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" onclick="fetchHistory()">View My Prediction History</button>
+        </div>
+        
+       <!-- Results Section - Enhanced with all backend components -->
+{% if prediction_text %}
+<div class="results-container">
+
+    <!-- Prediction Output -->
+    <h2 id="predi">Prediction Result:</h2>
+    <p><strong>{{ prediction_text }}</strong></p>
+
+    <!-- General Suggestion -->
+    {% if suggestion_text %}
+    <p class="suggestion-text">{{ suggestion_text }}</p>
+    {% endif %}
+
+    <!-- Health Insights -->
+    {% if health_insights %}
+    {{ health_insights | safe }}
+    {% endif %}
+
+    <!-- Detailed Recommendations -->
+    {% if detailed_suggestions %}
+    <div class="detailed-suggestions">
+        <h3>Detailed Recommendations:</h3>
+        {{ detailed_suggestions | safe }}
+    </div>
+    {% endif %}
+
+    <!-- AI Recommendations -->
+    {% if ai_recommendations %}
+    <div class="ai-recommendations">
+        {{ ai_recommendations | safe }}
+    </div>
+    {% endif %}
+
+    <!-- Natural Remedies -->
+    {% if natural_remedies %}
+    <div class="natural-remedies">
+        {{ natural_remedies | safe }}
+    </div>
+    {% endif %}
+
+    <!-- Doctor Recommendations -->
+    {% if doctor_recommendations %}
+    {{ doctor_recommendations | safe }}
+    {% endif %}
+
+    <!-- Test Recommendations -->
+    {% if test_recommendations %}
+    {{ test_recommendations | safe }}
+    {% endif %}
+
+    <!-- Health Tips -->
+    {% if health_tips %}
+    {{ health_tips | safe }}
+    {% endif %}
+
+    <!-- Telemedicine Options -->
+    {% if telemedicine_options %}
+    {{ telemedicine_options | safe }}
+    {% endif %}
+
+</div>
+{% endif %}
+    </div>
+    
+    <script>
+        document.getElementById('heart-form').addEventListener('submit', function(event) {
+            const age = document.getElementById('age').value;
+            if (age < 1 || age > 120) {
+                alert('Please enter a valid age between 1 and 120');
+                event.preventDefault();
+                return false;
+            }
+            return true;
+        });
+      
+        function fetchHistory() {
+            fetch('/history')
+                .then(response => response.json())
+                .then(data => {
+                    alert(JSON.stringify(data, null, 2)); // You can enhance this with proper rendering
+                })
+                .catch(error => {
+                    alert('Error fetching history: ' + error);
+                });
+        }
+        
+        // Help box accordion functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const helpHeaders = document.querySelectorAll('.help-header');
+            
+            helpHeaders.forEach(header => {
+                header.addEventListener('click', function() {
+                    // Toggle active class on the parent item
+                    this.parentElement.classList.toggle('active');
+                });
+            });
+        });
+      </script>
+      
+</body>
+</html>

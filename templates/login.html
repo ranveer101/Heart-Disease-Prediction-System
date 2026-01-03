@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Disease Prediction - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #0a0a0a;
+            color: #e0e0e0;
+        }
+        
+        
+        .container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #080808 0%, #1a1a1a 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Background slider styles */
+        .background-slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            filter: blur(8px); /* 40% blur effect */
+            transition: opacity 2s ease-in-out;
+        }
+        
+        .slide.active {
+            opacity: 0.6; /* This makes the images semi-transparent */
+        }
+        
+        /* Slider images */
+        .slide:nth-child(1) {
+            background-image: url("../static/neurons.jpg");
+        }
+        
+        .slide:nth-child(2) {
+            background-image: url("../static/nervous.jpg");
+        }
+        
+        .slide:nth-child(3) {
+            background-image: url("../static/skeleton.jpg");
+        }
+        
+        .container::before {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 20%, #080808 70%);
+            opacity: 0.8;
+            z-index: 1;
+        }
+
+        
+        .container::after {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, #333333 25%, transparent 25%, transparent 50%, #333333 50%, #333333 75%, transparent 75%, transparent);
+            background-size: 10px 10px;
+            opacity: 0.03;
+            animation: backgroundMove 70s linear infinite;
+            z-index: 0;
+        }
+        
+        @keyframes backgroundMove {
+            0% {
+                transform: translateY(0) rotate(0deg);
+            }
+            100% {
+                transform: translateY(0%) rotate(360deg);
+            }
+        }
+        
+        .card {
+            width: 380px;
+            height: 600px; /* Increased from 520px to 600px */
+            position: relative;
+            z-index: 2;
+            perspective: 2000px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .inner-box {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 1.2s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            padding: 40px 30px;
+            box-sizing: border-box;
+            backface-visibility: hidden;
+            border-radius: 15px;
+            background: linear-gradient(145deg, #121212, #1e1e1e);
+            box-shadow: 
+                0 10px 30px rgba(0, 0, 0, 0.7),
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 0 10px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            overflow: hidden;
+        }
+        
+        .card-front::before, .card-back::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(41, 128, 185, 0.1), transparent);
+            transform: rotate(45deg);
+            animation: shine 12s linear infinite;
+        }
+        
+        @keyframes shine {
+            0% {
+                transform: translateX(-100%) rotate(45deg);
+            }
+            100% {
+                transform: translateX(100%) rotate(45deg);
+            }
+        }
+        
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        
+        .card h2 {
+            font-weight: 600;
+            font-size: 28px;
+            text-align: center;
+            margin-bottom: 30px;
+            color: #ffffff;
+            text-shadow: 0 0 15px rgba(10, 175, 230, 0.3);
+            letter-spacing: 2px;
+        }
+        
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .input-box {
+            width: 100%;
+            background: rgba(30, 30, 30, 0.6);
+            border: none;
+            border-bottom: 2px solid rgba(100, 100, 100, 0.5);
+            margin: 12px 0;
+            height: 45px;
+            border-radius: 6px;
+            padding: 0 15px;
+            box-sizing: border-box;
+            outline: none;
+            color: #fff;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .input-box:focus {
+            border-bottom: 2px solid #2980b9;
+            box-shadow: 0 0 10px rgba(41, 128, 185, 0.3);
+        }
+        
+        .input-box::placeholder {
+            color: #777;
+            font-size: 14px;
+        }
+        
+        button {
+            width: 100%;
+            background: linear-gradient(90deg, #1a1a1a, #333333);
+            border: none;
+            margin: 25px 0 10px;
+            height: 45px;
+            font-size: 14px;
+            border-radius: 6px;
+            padding: 0 10px;
+            box-sizing: border-box;
+            outline: none;
+            color: #fff;
+            cursor: pointer;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+        }
+        
+        button:hover {
+            background: linear-gradient(90deg, #262626, #404040);
+        }
+        
+        .submit-btn {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .submit-btn::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            width: 45px;
+            border-radius: 0 6px 6px 0;
+            background-color: rgba(41, 128, 185, 0.8);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .submit-btn::before {
+            content: '➜';
+            position: absolute;
+            right: 15px;
+            top: 14px;
+            color: #fff;
+            z-index: 2;
+            font-size: 16px;
+        }
+        
+        .submit-btn:hover::after {
+            width: 100%;
+            border-radius: 6px;
+        }
+        
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            height: 17px;
+            width: 17px;
+            background: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            color: #2980b9;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        span {
+            font-size: 13px;
+            margin-left: 10px;
+            color: #aaa;
+        }
+        
+        .card .btn {
+            margin-top: 40px;
+            background: transparent;
+            border: 1px solid #333;
+            color: #aaa;
+        }
+        
+        .card .btn:hover {
+            background: rgba(41, 128, 185, 0.1);
+            border: 1px solid rgba(41, 128, 185, 0.3);
+        }
+        
+        .back-btn {
+            margin-top: 10px;
+            background: transparent;
+            border: 1px solid #333;
+            color: #aaa;
+        }
+        
+        .back-btn:hover {
+            background: rgba(41, 128, 185, 0.1);
+            border: 1px solid rgba(41, 128, 185, 0.3);
+        }
+        
+        .card a {
+            color: #2980b9;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            font-size: 13px;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+        
+        .card a:hover {
+            color: #3498db;
+            text-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+        
+        .lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            margin: auto;
+            width: 100vw;
+            z-index: -1;
+        }
+        
+        .line {
+            position: absolute;
+            width: 1px;
+            height: 100%;
+            top: 0;
+            background: rgba(255, 255, 255, 0.03);
+        }
+        
+        .line-1 {
+            left: 10%;
+        }
+        
+        .line-2 {
+            left: 30%;
+        }
+        
+        .line-3 {
+            left: 50%;
+        }
+        
+        .line-4 {
+            left: 70%;
+        }
+        
+        .line-5 {
+            left: 90%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Background Slider -->
+        <div class="background-slider">
+            <div class="slide active"></div>
+            <div class="slide"></div>
+            <div class="slide"></div>
+        </div>
+        
+        <div class="lines">
+            <div class="line line-1"></div>
+            <div class="line line-2"></div>
+            <div class="line line-3"></div>
+            <div class="line line-4"></div>
+            <div class="line line-5"></div>
+        </div>
+        <div class="card">
+            <div class="inner-box" id="card">
+                <div class="card-front">
+                    <h2>LOGIN</h2>
+                    <form action="/login" method="POST">
+                        <div class="input-group">
+                            <input type="email" name="email" class="input-box" placeholder="Email ID" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="password" name="password" class="input-box" placeholder="Password" required>
+                        </div>
+                        <button type="submit" class="submit-btn">ACCESS SYSTEM</button>
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="remember">
+                            <span>Remember Session</span>
+                        </div>
+                    </form>
+                    <button type="button" class="btn" onclick="openRegister()">CREATE NEW ACCOUNT</button>
+                    <a href="">Reset Password</a>
+                </div>
+                <div class="card-back">
+                    <h2>REGISTER</h2>
+                    <form action="/register" method="POST">
+                        <div class="input-group">
+                            <input type="text" name="name" class="input-box" placeholder="Your Name" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="email" name="email" class="input-box" placeholder="Email ID" required>
+                        </div>
+                        <div class="input-group">
+                            <input type="password" name="password" class="input-box" placeholder="Password" required>
+                        </div>
+                        <button type="submit" class="submit-btn">CREATE ACCOUNT</button>
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="remember-reg">
+                            <span>Remember Session</span>
+                        </div>
+                    </form>
+                    <button type="button" class="back-btn" onclick="openLogin()">BACK TO LOGIN</button>
+                    <a href="">Reset Password</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var card = document.getElementById("card");
+
+        function openRegister() {
+            card.style.transform = "rotateY(-180deg)";
+        }
+        
+        function openLogin() {
+            card.style.transform = "rotateY(0deg)";
+        }
+        
+        // Background slider functionality
+        const slides = document.querySelectorAll('.slide');
+        let currentSlide = 0;
+        
+        function nextSlide() {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (currentSlide + 1) % slides.length;
+            slides[currentSlide].classList.add('active');
+        }
+        
+        // Initialize slider
+        setInterval(nextSlide, 5000); // Change slide every 5 seconds
+    </script>
+</body>
+</html>

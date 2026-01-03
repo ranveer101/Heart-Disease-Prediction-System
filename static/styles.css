@@ -1,0 +1,517 @@
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Arial', sans-serif;
+}
+
+/* Body settings - Fix scrolling issue */
+body {
+    height: auto; /* Remove fixed height */
+    min-height: 100vh;
+    display: block; /* Allows normal page flow */
+    overflow-y: auto; /* Enable vertical scrolling */
+    background-color: #0f172a; /* Fallback background color */
+    color: white;
+}
+
+/* Background Slideshow */
+.slideshow-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    z-index: -1;
+}
+
+.slideshow {
+    display: flex;
+    width: 400%; /* 4 images */
+    height: 100%;
+    animation: slideAnimation 24s infinite cubic-bezier(0.45, 0.05, 0.55, 0.95);
+}
+
+.slideshow img {
+    width: 25%;
+    height: 100vh;
+    object-fit: cover;
+}
+
+/* Smooth sliding animation */
+@keyframes slideAnimation {
+    0%, 22% { transform: translateX(0); }
+    25%, 47% { transform: translateX(-25%); }
+    50%, 72% { transform: translateX(-50%); }
+    75%, 97% { transform: translateX(-75%); }
+    100% { transform: translateX(0); }
+}
+
+/* Navigation Bar */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(15, 23, 42, 0.9); /* Semi-transparent background */
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 1000;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+}
+
+.logo img {
+    width: 40px;
+    height: 40px;
+    margin-right: 10px;
+}
+
+.nav-link {
+    color: white;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.nav-link:hover {
+    color: #60a5fa;
+}
+
+/* Fix for the form positioning */
+.dashboard {
+    margin-top: 100px; /* Push form down to avoid navbar overlap */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column; /* Ensures vertical stacking */
+    padding-bottom: 50px;
+}
+
+/* Reduced blur for clarity */
+.form-container {
+    background: rgba(15, 23, 42, 0.8); /* Less blur effect */
+    backdrop-filter: blur(5px); /* Reduced from 10px to 5px */
+    -webkit-backdrop-filter: blur(5px);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px white;
+    width: 100%;
+    max-width: 500px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+.form-container select {
+    color:black;
+
+}
+
+
+
+
+/* Form styling */
+#heart-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-height: 80vh;
+    overflow-y: auto; /* Internal scroll if necessary */
+    padding-right: 10px;
+}
+
+/* Scrollbar Styling for the form */
+#heart-form::-webkit-scrollbar {
+    width: 5px;
+}
+
+#heart-form::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 5px;
+}
+
+#heart-form h1 {
+    text-align: center;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    font-size: 26px;
+    letter-spacing: 0.5px;
+    position: relative;
+    padding-bottom: 10px;
+}
+
+#heart-form h1::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(to right, #60a5fa, #a78bfa);
+    border-radius: 3px;
+}
+
+/* Two-column layout for larger screens */
+.form-group {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+}
+
+.form-group > div {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Labels and Inputs */
+#heart-form label {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+#heart-form input {
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+#heart-form input:focus {
+    outline: none;
+    border-color: rgba(147, 197, 253, 0.5);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Button styling */
+#heart-form button {
+    margin-top: 18px;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+}
+
+#heart-form button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(79, 70, 229, 0.4);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .dashboard {
+        margin-top: 80px;
+    }
+
+    .form-container {
+        padding: 25px;
+    }
+
+    .form-group {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    #heart-form h1 {
+        font-size: 24px;
+    }
+
+    #heart-form button {
+        padding: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .navbar {
+        padding: 10px 20px;
+    }
+
+    .logo {
+        font-size: 16px;
+    }
+
+    .logo img {
+        width: 30px;
+        height: 30px;
+    }
+
+    .nav-link {
+        font-size: 14px;
+    }
+}
+
+
+#predict
+{
+    display: flex;
+
+}
+
+
+
+.results-container {
+    background-color: #000; /* Pure black */
+    border-radius: 15px;
+    padding: 25px;
+    margin: 30px auto;
+    max-width: 800px;
+    box-shadow: 0 8px 20px rgba(255, 255, 255, 0.05);
+    font-family: 'Segoe UI', sans-serif;
+    color: black; /* White text */
+}
+
+.results-container h2 {
+    font-size: 24px;
+    color: white; /* White heading */
+    margin-bottom: 15px;
+}
+
+.results-container p,
+.results-container div {
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 15px;
+    color: black; /* Slightly off-white for readability */
+}
+
+.suggestion-text {
+    background-color: #6a1b9a; /* Deep purple */
+    border-left: 4px solid #fff;
+    padding: 12px;
+    border-radius: 6px;
+    color: #fff;
+}
+
+.health-insights,
+.detailed-suggestions,
+.ai-recommendations,
+.natural-remedies,
+.health-tips {
+    background-color: #111; /* Slightly lighter black */
+    border: 1px solid #9c27b0; /* Purple accent */
+    border-radius: 10px;
+    padding: 15px 20px;
+    margin-top: 20px;
+    transition: 0.3s ease-in-out;
+    color: black;
+}
+
+.health-insights:hover,
+.detailed-suggestions:hover,
+.ai-recommendations:hover,
+.natural-remedies:hover,
+.health-tips:hover {
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+}
+
+.results-container h3 {
+    color: rgb(50, 2, 50); /* Warm golden heading */
+    margin-bottom: 10px;
+}
+
+/* Style the select dropdown */
+select {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #4CAF50; /* Green border */
+    border-radius: 8px;
+    font-size: 16px;
+    background-color: #f9f9f9;
+    color: #333;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.3s ease-in-out;
+}
+
+/* Hover effect */
+select:hover {
+    border-color:black; /* Darker green on hover */
+}
+
+/* Focus effect */
+select:focus {
+    border-color:black; /* Darker green when clicked */
+    background-color: rgb(10, 55, 72);
+}
+
+/* Style the dropdown arrow */
+select::-ms-expand {
+    display: none;
+}
+
+
+/* Arrange elements in a row */
+.form-row {
+    display: flex;
+    gap: 20px; /* Adds space between fields */
+    justify-content: space-between;
+}
+
+/* Style form inputs */
+.form-group {
+    flex: 1; /* Each input takes equal space */
+}
+
+/* Make inputs look better */
+input {
+    width: 100%;
+    padding: 8px;
+    border: 2px solid black;
+    border-radius: 8px;
+    font-size: 16px;
+    outline: none;
+    transition: 0.3s;
+}
+
+/* Add hover and focus effects */
+input:hover, input:focus {
+    border-color: black;
+    box-shadow: 0 0 8px black;
+}
+
+
+
+
+
+
+/* login page css */
+*{
+    margin: 0;
+    padding: 0;
+    }
+    .container{
+    width: 100%;
+    height: 100vh;
+    font-family: sans-serif;
+    background: rgb(187,187,245);
+    color: #ffffff; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+     }
+    .card{
+    width: 350px;
+    height: 500px;
+    box-shadow: 0 0 40px 20px rgba(0,0,0,0.26);
+    perspective: 1000px
+    }
+    .inner-box{
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 1s;
+     }
+    .card-front,.card-back{
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-position: center;
+    background-size: cover;
+    background-image: linear-gradient(rgba(0,0,100,0.8), rgba(0,0,100,0.8)),url(photo.jpeg);
+    padding: 55px;
+    box-sizing: border-box;
+    backface-visibility: hidden;
+    }
+    .card-back{
+        transform: rotateY(180deg);
+    }
+    .card h2{
+        font-weight: normal;
+        font-size: 24px;
+        text-align: center;
+        margin-bottom: 20px;
+
+    }
+    .input-box{
+        width: 100%;
+        background: transparent;
+        border: 1px solid #fff;
+        margin: 6px 0;
+        height:32px;
+        border-radius: 20px;
+        padding: 0 10px;
+        box-sizing: border-box;
+        outline: none;
+        text-align: center;
+        color:white;
+    }
+    ::placeholder{
+        color: #fff;
+        font-size: 12px;
+    
+    }
+    button{
+        width:100%;
+        background: transparent;
+        border: 1px solid #fff;
+        margin: 35px 0 10px;
+        height: 40px;
+        font-size: 12px;
+        border-radius: 20px;
+        padding: 0 10px;
+        box-sizing: border-box;
+        outline: none;
+        color: #fff;
+        cursor: pointer;
+        margin-bottom: 20px;
+    }
+    .submit-btn{
+        position:relative;
+
+    }
+    .submit-btn::after{
+        content: '\27a4';
+        color: #333;
+        line-height: 32px;
+        font-size: 17px;
+        height: 32px;
+        width: 32px;
+        border-radius: 50%;
+        background: #fff;
+        position: absolute;
+        right:-1px;
+        top:-1px;
+    }
+    span{
+        font-size:13px;
+        margin-left:10px;
+    }
+    .card .btn{
+        margin-top: 70px;
+    }
+    .card a{
+        color:#fff;
+        text-decoration: none;
+        display: block;
+        text-align: center;
+        font-size: 13px;
+        margin-top: 8px
+    }
+
+
+
+    

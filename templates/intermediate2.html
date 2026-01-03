@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Model Dashboard - NeuraSphere</title>
+    <style>
+        /* GLOBAL STYLES */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: #121212;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+        
+        /* LOADING SCREEN */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #2a2a2a, #121212);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease-out;
+        }
+        
+        .loading-bar-container {
+            width: 60%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin-top: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .loading-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #7d7d7d, #e0e0e0);
+            border-radius: 10px;
+            transition: width 0.5s ease-out;
+            box-shadow: 0 0 10px rgba(225, 225, 225, 0.5);
+        }
+        
+        .loading-percentage {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #acacac;
+            margin-top: 15px;
+        }
+        
+        .loading-text {
+            position: relative;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #e0e0e0;
+        }
+        
+        /* HEADER */
+        header {
+            padding: 1.5rem;
+            background: linear-gradient(180deg, rgba(18, 18, 18, 0.9), rgba(18, 18, 18, 0.7));
+            backdrop-filter: blur(8px);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #7d7d7d, #3d3d3d);
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            box-shadow: 0 0 15px rgba(125, 125, 125, 0.5);
+        }
+        
+        .logo-icon::before {
+            content: '';
+            width: 20px;
+            height: 20px;
+            border: 3px solid #e0e0e0;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1.5s linear infinite;
+        }
+        
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #e0e0e0, #7d7d7d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+        
+        nav a {
+            color: #e0e0e0;
+            text-decoration: none;
+            font-size: 1rem;
+            position: relative;
+            padding: 0.5rem 0;
+            transition: color 0.3s ease;
+        }
+        
+        nav a:hover {
+            color: #acacac;
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: #7d7d7d;
+            transition: width 0.3s ease;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+        /* USER INFO */
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .username {
+            font-weight: 600;
+            color: #e0e0e0;
+        }
+        
+        .logout-btn {
+            background: linear-gradient(90deg, #5d5d5d, #3d3d3d);
+            color: #e0e0e0;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .logout-btn:hover {
+            background: linear-gradient(90deg, #7d7d7d, #5d5d5d);
+        }
+        
+        /* MAIN CONTENT */
+        main {
+            padding: 8rem 2rem 2rem;
+            min-height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .hero {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            margin-bottom: 4rem;
+        }
+        
+        .hero-content {
+            flex: 1;
+        }
+        
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, #e0e0e0, #7d7d7d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .hero p {
+            font-size: 1.1rem;
+            color: #acacac;
+            line-height: 1.7;
+            margin-bottom: 2rem;
+            max-width: 600px;
+        }
+        
+        .hero-image {
+            /*flex: 1;*/
+            max-width: 500px;
+            height: 300px;
+           /* background: linear-gradient(135deg, #2a2a2a, #1a1a1a);*/
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .hero-image img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: fill;
+            display: block;
+            
+          }
+        
+        /* CARDS SECTION */
+        .section-title {
+            font-size: 1.8rem;
+            margin-bottom: 2rem;
+            position: relative;
+            display: inline-block;
+            padding-bottom: 10px;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            width: 60%;
+            height: 3px;
+            background: linear-gradient(90deg, #7d7d7d, transparent);
+            bottom: 0;
+            left: 0;
+        }
+        
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+        
+        .card {
+            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, #7d7d7d, transparent);
+        }
+        
+        .card-icon {
+            width: 60px;
+            height: 60px;
+            background: rgba(125, 125, 125, 0.1);
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+        
+        .card-icon::before {
+            font-size: 1.8rem;
+            color: #7d7d7d;
+            
+        }
+        
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #e0e0e0;
+        }
+        
+        .card-description {
+            font-size: 0.9rem;
+            color: #acacac;
+            line-height: 1.6;
+        }
+        
+        .start-model-card {
+            background: linear-gradient(135deg, #2d2d2d, #1d1d1d);
+            border-left: none;
+        }
+        
+        .start-model-card::before {
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #7d7d7d, transparent);
+        }
+
+        .heart-model-card {
+            background: linear-gradient(135deg, #3d2d2d, #2d1d1d);
+            border-left: none;
+        }
+        
+        .heart-model-card::before {
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #cd7d7d, transparent);
+        }
+        
+        .heart-model-button {
+            background: linear-gradient(90deg, #cd7d7d, #ad5d5d);
+            color: #121212;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 5px 15px rgba(205, 125, 125, 0.3);
+            margin-top: 1rem;
+            width: 100%;
+        }
+        
+        .heart-model-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(205, 125, 125, 0.4);
+        }
+        
+        .heart-model-button:active {
+            transform: translateY(2px);
+        }
+        
+        .action-button {
+            background: linear-gradient(90deg, #7d7d7d, #5d5d5d);
+            color: #121212;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 5px 15px rgba(125, 125, 125, 0.3);
+            margin-top: 1rem;
+            width: 100%;
+            margin-bottom: 10;
+            
+        }
+        
+        .action-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(125, 125, 125, 0.4);
+        }
+        
+        .action-button:active {
+            transform: translateY(2px);
+        }
+        
+        /* PROFILE SECTION */
+        .profile-section {
+            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 4rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .profile-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #7d7d7d, transparent);
+        }
+        
+        .welcome-message {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #e0e0e0;
+        }
+        
+        .user-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .stat-card {
+            background: rgba(42, 42, 42, 0.5);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #7d7d7d;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #acacac;
+        }
+        
+        /* FOOTER */
+        footer {
+            background: linear-gradient(0deg, #0a0a0a, rgba(18, 18, 18, 0));
+            padding: 2rem;
+            text-align: center;
+            color: #acacac;
+        }
+        
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .footer-links {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        .footer-links a {
+            color: #acacac;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .footer-links a:hover {
+            color: #7d7d7d;
+        }
+        
+        .copyright {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        /* ANIMATIONS */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* RESPONSIVE */
+        @media (max-width: 900px) {
+            .hero {
+                flex-direction: column;
+            }
+            
+            .hero-image {
+                width: 100%;
+            }
+            
+            nav ul {
+                gap: 1rem;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .loading-bar-container {
+                width: 80%;
+            }
+            
+            .footer-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen">
+        <div class="loading-text">Initializing AI Framework</div>
+        <div class="loading-bar-container">
+            <div class="loading-bar"></div>
+        </div>
+        <div class="loading-percentage">0%</div>
+    </div>
+
+    <!-- Header -->
+    <header>
+        <div class="logo">
+            <div class="logo-icon"></div>
+            <span class="logo-text">NeuraSphere</span>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="#home">Home</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#models">Models</a></li>
+                <li><a href="#about">About Us</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+        <div class="user-info">
+            <span class="username">Welcome, {{ username }}</span>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <section class="profile-section">
+            <h2 class="welcome-message">Welcome to NeuraSphere, {{ username }}!</h2>
+            <p>Your AI-powered health analysis platform is ready. Choose a model below to begin.</p>
+            
+            <div class="user-stats">
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Predictions Made</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Health Insights</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Risk Analyses</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="hero" id="home">
+            <div class="hero-content">
+                <h1>Advanced ML Health Dashboard</h1>
+                <p>Leverage the power of machine learning for health predictions. Access powerful predictive algorithms, health insights, and real-time analytics to transform your health data into actionable insights.</p>
+            </div>
+            <div class="hero-image">
+                <img src="../static/hero-image2.png" alt="">
+            </div>
+        </section>
+
+        <h2 class="section-title" id="features">Platform Features</h2>
+        <div class="cards">
+            <div class="card start-model-card">
+                <div>
+                    <div class="card-icon" style="background: rgba(125, 125, 125, 0.2);">🚀</div>
+                    <h3 class="card-title">Start ML Model</h3>
+                    <p class="card-description">Launch your machine learning model and begin processing your health data with our advanced algorithms.</p>
+                </div>
+                <button class="action-button" id="start-model-btn">Launch Model</button>
+            </div>
+            
+            <div class="card">
+                <div>
+                    <div class="card-icon">📊</div>
+                    <h3 class="card-title">Health Analytics</h3>
+                    <p class="card-description">Explore comprehensive health analytics tools to visualize and interpret your results.</p>
+                </div>
+                <button class="action-button">Explore</button>
+            </div>
+            
+            <div class="card">
+                <div>
+                    <div class="card-icon">⚙️</div>
+                    <h3 class="card-title">Health Profile</h3>
+                    <p class="card-description">Update your health profile and settings for more personalized predictions.</p>
+                </div>
+                <button class="action-button">Update Profile</button>
+            </div>
+        </div>
+
+        <h2 class="section-title" id="models">Health ML Models</h2>
+        <div class="cards">
+            <div class="card heart-model-card">
+                <div>
+                    <div class="card-icon" style="background: rgba(205, 125, 125, 0.2);">❤️</div>
+                    <h3 class="card-title">Heart Disease Prediction</h3>
+                    <p class="card-description">Use our advanced model to predict cardiovascular disease risk based on clinical parameters.</p>
+                </div>
+                <a href="{{ url_for('heart_disease_model') }}" class="heart-model-button" id="heart-model-btn">Enter Model</a>
+            </div>
+            
+            <div class="card">
+                <div>
+                    <div class="card-icon">🧠</div>
+                    <h3 class="card-title">Mental Health Assessment</h3>
+                    <p class="card-description">Analyze mental health patterns and receive personalized recommendations.</p>
+                </div>
+                <button class="action-button">Coming Soon</button>
+            </div>
+            
+            <div class="card">
+                <div>
+                    <div class="card-icon">📈</div>
+                    <h3 class="card-title">Health Forecasting</h3>
+                    <p class="card-description">Predict health trends and analyze personal health data with our time-series models.</p>
+                </div>
+                <button class="action-button">Coming Soon</button>
+            </div>
+        </div>
+
+        <h2 class="section-title" id="about">About Our Platform</h2>
+        <div class="cards">
+            <div class="card">
+                <div>
+                    <div class="card-icon">🔍</div>
+                    <h3 class="card-title">Our Mission</h3>
+                    <p class="card-description">We aim to democratize health prediction technology and make it accessible to everyone regardless of technical expertise.</p>
+                </div>
+                <button class="action-button">Learn More</button>
+            </div>
+            
+            <div class="card">
+                <div>
+                    <div class="card-icon">👥</div>
+                    <h3 class="card-title">Our Team</h3>
+                    <p class="card-description">Meet our team of experts in machine learning, health science, and software engineering.</p>
+                </div>
+                <button class="action-button" onclick="location.href='/aboutUs'">Meet Us</button>
+
+                  
+
+            </div>
+            
+            <div class="card">
+                <div>
+                    <div class="card-icon">📚</div>
+                    <h3 class="card-title">Health Resources</h3>
+                    <p class="card-description">Access comprehensive guides and documentation about heart health and prevention.</p>
+                </div>
+                <button class="action-button">View Resources</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-links">
+                <a href="#privacy">Privacy Policy</a>
+                <a href="#terms">Terms of Service</a>
+                <a href="#contact" id="contact">Contact Us</a>
+            </div>
+        </div>
+        <div class="copyright">© 2025 NeuraSphere. All rights reserved.</div>
+    </footer>
+
+    <script>
+        // Loading animation
+        document.addEventListener('DOMContentLoaded', () => {
+            const loadingBar = document.querySelector('.loading-bar');
+            const loadingScreen = document.querySelector('.loading-screen');
+            const loadingPercentage = document.querySelector('.loading-percentage');
+            const loadingText = document.querySelector('.loading-text');
+            
+            const loadingTexts = [
+                "Initializing AI Framework",
+                "Loading Neural Networks",
+                "Calibrating Algorithms",
+                "Preparing Interface",
+                "Almost Ready"
+            ];
+            
+            let progress = 0;
+            const loadingInterval = setInterval(() => {
+                progress += Math.random() * 3;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(loadingInterval);
+                    
+                    // Fade out loading screen after a small delay
+                    setTimeout(() => {
+                        loadingScreen.style.opacity = '0';
+                        setTimeout(() => {
+                            loadingScreen.style.display = 'none';
+                        }, 500);
+                    }, 500);
+                }
+                
+                // Update loading bar and percentage
+                loadingBar.style.width = `${progress}%`;
+                loadingPercentage.textContent = `${Math.round(progress)}%`;
+                
+                // Update loading text based on progress
+                const textIndex = Math.min(Math.floor(progress / 20), loadingTexts.length - 1);
+                loadingText.textContent = loadingTexts[textIndex];
+                
+            }, 80);
+            
+            // Handle start model button click
+            document.getElementById('start-model-btn').addEventListener('click', () => {
+                window.location.href = "{{ url_for('home') }}";
+            });
+            
+            // Get prediction history on page load to populate stats
+            fetch("{{ url_for('get_history') }}")
+                .then(response => response.json())
+                .then(data => {
+                    // Update stats based on history data
+                    if (data && data.length) {
+                        document.querySelectorAll('.stat-card')[0].querySelector('.stat-value').textContent = data.length;
+                        
+                        // Count unique insights (placeholder logic)
+                        document.querySelectorAll('.stat-card')[1].querySelector('.stat-value').textContent = Math.min(data.length * 3, 50);
+                        
+                        // Count risk analyses (placeholder - in real app would count high/medium risk predictions)
+                        const riskAnalyses = data.filter(item => item.prediction && item.prediction.includes("Risk")).length;
+                        document.querySelectorAll('.stat-card')[2].querySelector('.stat-value').textContent = riskAnalyses || 0;
+                    }
+                })
+                .catch(error => console.error('Error fetching history:', error));
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Disease Prediction Results | HeartGuard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #1a56db;
+            --primary-light: #e6f0ff;
+            --secondary-color: #f8f9fa;
+            --accent-color: #dc2626;
+            --text-color: #1f2937;
+            --light-text: #6b7280;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .container {
+            max-width: 1140px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        header {
+            background-color: white;
+            box-shadow: var(--box-shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+        }
+        
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .logo i {
+            color: var(--accent-color);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 24px;
+        }
+        
+        .nav-links a {
+            color: var(--text-color);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+        
+        .page-title {
+            background-color: white;
+            padding: 24px 0;
+            margin-bottom: 32px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .page-title h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0;
+            color: var(--text-color);
+        }
+        
+        .breadcrumbs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--light-text);
+        }
+        
+        .breadcrumbs a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .result-container {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            overflow: hidden;
+            margin-bottom: 32px;
+        }
+        
+        .result-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 24px 32px;
+        }
+        
+        .result-header h2 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .timestamp {
+            font-size: 14px;
+            font-weight: 400;
+            margin-top: 4px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .result-content {
+            padding: 32px;
+        }
+        
+        .result-summary {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .prediction-box {
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            border-radius: var(--border-radius);
+            padding: 24px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .risk-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--light-text);
+            margin-bottom: 16px;
+        }
+        
+        .risk-level {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 16px;
+            border-radius: 24px;
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .risk-low {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+        
+        .risk-moderate {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+        }
+        
+        .risk-high {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+        
+        .confidence-score {
+            font-size: 14px;
+            color: var(--light-text);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .vital-card {
+            flex: 1;
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            border-radius: var(--border-radius);
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .vital-card h3 {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--light-text);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .vitals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 16px;
+        }
+        
+        .vital-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .vital-label {
+            font-size: 13px;
+            color: var(--light-text);
+            margin-bottom: 4px;
+        }
+        
+        .vital-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        
+        .vital-status {
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        
+        .normal {
+            color: var(--success-color);
+        }
+        
+        .elevated {
+            color: var(--warning-color);
+        }
+        
+        .critical {
+            color: var(--danger-color);
+        }
+        
+        .section {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .section-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        
+        .section-header i {
+            color: var(--primary-color);
+            font-size: 18px;
+        }
+        
+        .section-content {
+            padding: 24px;
+        }
+        
+        .rec-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 16px;
+        }
+        
+        .rec-card {
+            background-color: var(--secondary-color);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .rec-card h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+        
+        .rec-card p {
+            font-size: 14px;
+            color: var(--light-text);
+            margin: 0;
+        }
+        
+        .test-list, .specialist-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+        
+        .test-item, .specialist-item {
+            background-color: var(--secondary-color);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .test-name, .specialist-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+        
+        .test-desc, .specialist-desc {
+            font-size: 14px;
+            color: var(--light-text);
+            margin: 0;
+        }
+        
+        .priority {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-top: 8px;
+        }
+        
+        .priority-high {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+        
+        .priority-medium {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+        }
+        
+        .priority-low {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+        
+        .tip-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        
+        .tip-item {
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            border-radius: var(--border-radius);
+            padding: 16px;
+            display: flex;
+            gap: 12px;
+        }
+        
+        .tip-icon {
+            color: var(--primary-color);
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        
+        .tip-content h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+        
+        .tip-content p {
+            font-size: 14px;
+            color: var(--light-text);
+            margin: 0;
+        }
+        
+        .source-text {
+            font-size: 13px;
+            color: var(--light-text);
+            margin-top: 12px;
+            display: block;
+        }
+        
+        .disclaimer {
+            background-color: rgba(245, 158, 11, 0.1);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            margin-top: 24px;
+            font-size: 14px;
+            color: var(--warning-color);
+            border-left: 4px solid var(--warning-color);
+        }
+        
+        .disclaimer strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 16px;
+            margin-top: 32px;
+        }
+        
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 16px;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+            transition: var(--transition);
+            border: none;
+            cursor: pointer;
+        }
+        
+        .button:hover {
+            background-color: #0e4bb6;
+        }
+        
+        .button.secondary {
+            background-color: white;
+            color: var(--text-color);
+            border: 1px solid #e5e7eb;
+        }
+        
+        .button.secondary:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .button.accent {
+            background-color: var(--accent-color);
+        }
+        
+        .button.accent:hover {
+            background-color: #b91c1c;
+        }
+        
+        @media print {
+            body {
+                background-color: white;
+            }
+            
+            header, .page-title, .actions {
+                display: none;
+            }
+            
+            .container {
+                width: 100%;
+                max-width: 100%;
+                padding: 0;
+            }
+            
+            .result-container, .section {
+                box-shadow: none;
+                margin-bottom: 20px;
+                break-inside: avoid;
+            }
+            
+            .result-header {
+                background-color: #f3f4f6;
+                color: var(--text-color);
+                border-bottom: 1px solid #e5e7eb;
+            }
+            
+            .result-header h2 i {
+                color: var(--primary-color);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 16px;
+            }
+            
+            .result-summary {
+                flex-direction: column;
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+            
+            .button {
+                width: 100%;
+            }
+            
+            .rec-grid, .test-list, .specialist-list, .tip-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-heartbeat"></i> HeartGuard
+                </div>
+                <div class="nav-links">
+                    <a href="/home"><i class="fas fa-home"></i> Dashboard</a>
+                    <a href="/history"><i class="fas fa-history"></i> History</a>
+                    <a href="/profile"><i class="fas fa-user"></i> Profile</a>
+                    <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="page-title">
+        <div class="container">
+            <div class="breadcrumbs">
+                <a href="/home">Dashboard</a> <i class="fas fa-chevron-right"></i> Heart Analysis Results
+            </div>
+            <h1>Heart Health Analysis Results</h1>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="result-container">
+            <div class="result-header">
+                <h2><i class="fas fa-clipboard-check"></i> Cardiovascular Risk Assessment</h2>
+                <div class="timestamp">Generated on <span id="current-date"></span></div>
+            </div>
+            
+            <div class="result-content">
+                <!-- Main prediction text from backend -->
+                <div id="prediction-container">
+                    {{ prediction_text|safe }}
+                </div>
+                
+                <div class="result-summary">
+                    <div class="prediction-box">
+                        <div class="risk-title">Risk Assessment</div>
+                        <div id="risk-indicator" class="risk-level">Risk Level</div>
+                        <!-- Confidence score will be updated by JavaScript -->
+                        <div class="confidence-score">
+                            <i class="fas fa-chart-bar"></i> 
+                            <span id="confidence-value">Confidence score</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Health insights section -->
+                    <div class="vital-card">
+                        <h3><i class="fas fa-heartbeat"></i> Key Health Insights</h3>
+                        <div id="health-insights-container">
+                            {{ health_insights|safe }}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Primary suggestion section -->
+                <div class="section">
+                    <div class="section-header">
+                        <i class="fas fa-lightbulb"></i>
+                        <h3>Key Recommendations</h3>
+                    </div>
+                    <div class="section-content">
+                        <p>{{ suggestion_text|safe }}</p>
+                        
+                        <div id="detailed-suggestions">
+                            {{ detailed_suggestions|safe }}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- AI Recommendations Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <i class="fas fa-robot"></i>
+                        <h3>AI-Enhanced Insights</h3>
+                    </div>
+                    <div class="section-content">
+                        {{ ai_recommendations|safe }}
+                        {{ natural_remedies|safe }}
+                    </div>
+                </div>
+                
+                <!-- Test Recommendations Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <i class="fas fa-flask"></i>
+                        <h3>Recommended Tests & Specialists</h3>
+                    </div>
+                    <div class="section-content">
+                        {{ test_recommendations|safe }}
+                        {{ doctor_recommendations|safe }}
+                    </div>
+                </div>
+                
+                <!-- Health Tips Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <i class="fas fa-heart"></i>
+                        <h3>Health Tips & Telemedicine Options</h3>
+                    </div>
+                    <div class="section-content">
+                        {{ health_tips|safe }}
+                        {{ telemedicine_options|safe }}
+                        
+                        <div class="disclaimer">
+                            <strong>Medical Disclaimer</strong>
+                            This report is generated based on the information provided and is intended for informational purposes only. It is not a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition.
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    <a href="/home" class="button secondary">
+                        <i class="fas fa-arrow-left"></i> Return to Dashboard
+                    </a>
+                    <button class="button" onclick="window.print()">
+                        <i class="fas fa-print"></i> Print Report
+                    </button>
+                    <a href="/home" class="button">
+                        <i class="fas fa-redo"></i> New Analysis
+                    </a>
+                    <a href="#" class="button accent" id="emergency-btn">
+                        <i class="fas fa-phone"></i> Emergency Contacts
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set current date
+        document.addEventListener('DOMContentLoaded', function() {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const currentDate = new Date().toLocaleDateString('en-US', options);
+            document.getElementById('current-date').textContent = currentDate;
+            
+            // Extract risk level from prediction text
+            const predictionText = document.getElementById('prediction-container').innerText.toLowerCase();
+            const riskIndicator = document.getElementById('risk-indicator');
+            
+            if(predictionText.includes("low risk")) {
+                riskIndicator.textContent = "Low Risk";
+                riskIndicator.className = "risk-level risk-low";
+            } else if(predictionText.includes("moderate risk")) {
+                riskIndicator.textContent = "Moderate Risk";
+                riskIndicator.className = "risk-level risk-moderate";
+            } else if(predictionText.includes("high risk")) {
+                riskIndicator.textContent = "High Risk";
+                riskIndicator.className = "risk-level risk-high";
+            } else {
+                // Default case
+                riskIndicator.textContent = "Risk Assessment";
+                riskIndicator.className = "risk-level risk-moderate";
+            }
+            
+            // Extract confidence percentage from prediction text 
+            const confidenceMatch = predictionText.match(/confidence:\s*(\d+\.?\d*)%/i);
+            if(confidenceMatch && confidenceMatch[1]) {
+                document.getElementById('confidence-value').textContent = `Confidence score: ${confidenceMatch[1]}%`;
+            }
+            
+            // Emergency button functionality
+            document.getElementById('emergency-btn').addEventListener('click', function(e) {
+                e.preventDefault();
+                alert('Emergency Contacts: \n\nEmergency Services: 911\nNurse Hotline: 1-800-555-NURSE\nCardiac Care Line: 1-800-HEART-HELP');
+            });
+        });
+    </script>
+</body>
+</html>
