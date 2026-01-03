@@ -14,10 +14,24 @@ app.secret_key = os.environ.get('SECRET_KEY', os.urandom(25))  # Required for se
 def clear_session_on_restart():
     session.clear()
 
-# MongoDB Setup - Use environment variable for connection string
-mongodb_uri = os.environ.get('MONGODB_URI', 'mongodb://localhost:27017/')
-client = MongoClient(mongodb_uri)
-db = client["heart_disease_db"]
+import os
+from pymongo import MongoClient
+
+MONGO_URI = os.environ.get("MONGO_URI")
+
+client = None
+db = None
+
+if MONGO_URI:
+    try:
+        client = MongoClient(MONGO_URI)
+        db = client["heart_disease_db"]
+        print("MongoDB connected")
+    except Exception as e:
+        print("MongoDB connection failed:", e)
+else:
+    print("MongoDB disabled: MONGO_URI not set")
+
 users_collection = db["users"]
 predictions_collection = db["predictions"]
 # history_collection = db["history"]
