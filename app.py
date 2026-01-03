@@ -6,6 +6,8 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from datetime import datetime
 import os
+from werkzeug.security import generate_password_hash, check_password_hash
+
 
 # Initialize Flask app consistently
 app = Flask(__name__)
@@ -17,24 +19,30 @@ def clear_session_on_restart():
 import os
 from pymongo import MongoClient
 
+
+
 MONGO_URI = os.environ.get("MONGO_URI")
 
 client = None
 db = None
 
-if MONGO_URI:
-    try:
-        client = MongoClient(MONGO_URI)
-        db = client["heart_disease_db"]
-        print("MongoDB connected")
-    except Exception as e:
-        print("MongoDB connection failed:", e)
-else:
-    print("MongoDB disabled: MONGO_URI not set")
+def get_db():
+    global client, db
 
-users_collection = db["users"]
-predictions_collection = db["predictions"]
-# history_collection = db["history"]
+    if db is None:
+        if not MONGO_URI:
+            raise Exception("MONGO_URI not set")
+
+        client = MongoClient(
+            MONGO_URI,
+            serverSelectionTimeoutMS=3000,
+            connectTimeoutMS=3000,
+            socketTimeoutMS=3000
+        )
+        db = client["heart_disease_db"]
+
+    return db
+
 
 
 # Load the pipeline (single consistent approach)
@@ -379,7 +387,12 @@ def predict():
         
         # Save prediction to database if user is logged in
         if 'user_id' in session:
+            db = get_db()
+            predictions_collection = db["predictions"]
             predictions_collection.insert_one({
+                
+                
+
                 'user_id': session['user_id'],
                 'prediction': prediction,
                 'confidence': confidence,
@@ -442,7 +455,10 @@ def get_history():
     if not user_id:
         return redirect(url_for('login_page'))
 
+    db = get_db()
+    predictions_collection = db["predictions"]
     results = predictions_collection.find({'user_id': user_id})
+
     history = []
     for item in results:
         history.append({
@@ -466,47 +482,68 @@ def login_page():
     return render_template("login.html")
 
 # Register Route
-@app.route('/register', methods=["POST"])
+from werkzeug.security import generate_password_hash
+from flask import flash
+
+@app.route("/register", methods=["POST"])
 def register():
-    name = request.form['name']
-    email = request.form['email']
-    password = request.form['password']
+    try:
+        db = get_db()
+        users_collection = db["users"]
 
-    # Check if user already exists
-    if users_collection.find_one({'email': email}):
-        return "User already exists. Please login."
+        username = request.form.get("username")
+        email = request.form.get("email")
+        password = request.form.get("password")
 
-    # Save new user
-    user_id = users_collection.insert_one({
-        'name': name,
-        'email': email,
-        'password': password
-    }).inserted_id
-    
-    # Log in the user right after registration
-    session['user_id'] = str(user_id)
-    session['email'] = email
-    session['name'] = name
-    
-    # Redirect to intermediate page after registration
-    return redirect(url_for('intermediate'))
+        if not username or not email or not password:
+            flash("All fields are required")
+            return redirect(url_for("login_page"))
+
+        if users_collection.find_one({"email": email}):
+            flash("Email already exists")
+            return redirect(url_for("login_page"))
+
+        hashed_password = generate_password_hash(password)
+
+        users_collection.insert_one({
+            "username": username,
+            "email": email,
+            "password": hashed_password
+        })
+
+        flash("Account created successfully")
+        return redirect(url_for("login_page"))
+
+    except Exception as e:
+        print("REGISTER ERROR:", e)
+        return "Internal Server Error", 500
+
 
 # Login Route
+
+
 @app.route('/login', methods=["POST"])
 def login():
-    email = request.form['email']
-    password = request.form['password']
+    try:
+        db = get_db()
+        users_collection = db["users"]
 
-    user = users_collection.find_one({'email': email, 'password': password})
+        email = request.form.get("email")
+        password = request.form.get("password")
 
-    if user:
-        session['user_id'] = str(user['_id'])
-        session['email'] = user['email']
-        session['name'] = user.get('name', 'User')
-        # Redirect to intermediate page after login
-        return redirect(url_for('intermediate'))
-    else:
-        return "Invalid credentials. Try again."
+        user = users_collection.find_one({'email': email})
+
+        if user and check_password_hash(user["password"], password):
+            session['user_id'] = str(user['_id'])
+            session['email'] = user['email']
+            session['name'] = user.get('username', 'User')
+            return redirect(url_for('intermediate'))
+        else:
+            return "Invalid credentials. Try again."
+
+    except Exception as e:
+        print("LOGIN ERROR:", e)
+        return "Internal Server Error", 500
 
 @app.route('/aboutUs')
 def aboutus():
